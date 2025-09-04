@@ -308,9 +308,12 @@ body:not(.theme-light) #notas-dia.saved{
   <header class="topbar">
     <div style="visibility:hidden"><!-- placeholder para centrar --></div>
     <div style="text-align:center">
-      <h1>CUADERNO DIGITAL</h1>
-      <div id="reloj"></div>
-    </div>
+  <div style="display:flex;align-items:center;gap:8px;justify-content:center">
+    <h1>CUADERNO DIGITAL</h1>
+    <span id="user-badge" class="badge"></span>
+  </div>
+  <div id="reloj"></div>
+</div>
     <div style="display:flex; gap:8px">
   <button id="btn-tema" class="btn ghost" type="button">Claro</button>
   <button id="btn-dos-col" class="btn ghost">Vista 2 columnas</button>
@@ -534,7 +537,16 @@ btnControl.textContent = controlMode ? 'Controlar (ON)' : 'Controlar';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2lnYXVkcHJxZmJ3aHd6Ym13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MTkyNDcsImV4cCI6MjA2OTQ5NTI0N30.guc4XWLGcJCcLNaJL2S1jEla944YPxOZr2oJPJRDBTA';
 window.__sb = window.__sb || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 const sb = window.__sb;
-
+// 🔒 Si no hay sesión → ir a login antes de seguir cargando la página
+(async () => {
+    const { data:{ session } } = await sb.auth.getSession();
+    if (!session) {
+      localStorage.clear();
+      location.replace('login.html');  // 👉 redirige SIEMPRE si no hay sesión
+      return;
+    }
+    document.body.style.display = '';  // 👉 muestra la app SOLO con sesión
+  })();
 btnLogout.addEventListener('click', async () => {
   try {
     await sb.auth.signOut(); // ✅ usar el mismo client
@@ -684,7 +696,22 @@ window.addEventListener('storage', (ev) => {
       }</td>
     </tr>`;
 }
+// 🏷️ Mostrar el "usuario" (prefijo del mail o el que ya tengas guardado)
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return; // por las dudas
 
+  // tu app ya usa 'usuario_id' (prefijo del mail). Lo respetamos:
+  let code = localStorage.getItem('usuario_id');
+  if (!code) {
+    const email = session.user.email || '';
+    code = (email.split('@')[0] || '').trim() || session.user.id.slice(0,6);
+    localStorage.setItem('usuario_id', code);
+  }
+
+  const badge = document.getElementById('user-badge');
+  if (badge) badge.textContent = code; // 👉 muestra solo 2323/2334/etc.
+})();
     function render(){
       const readOnly=(fechaListado!==hoyKey()) && !controlMode;
       const rows=load('premios', fechaListado);
