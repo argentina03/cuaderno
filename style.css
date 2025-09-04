@@ -1,0 +1,130 @@
+:root{
+  --bg:#0f0f10; --card:#1a1b1e; --muted:#b8b8b8; --gold:#ffd700; --text:#f5f5f7;
+  --border:#2c2c2f;
+}
+
+/* ---------------- Base ---------------- */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+}
+h1,h2,h3{margin:0 0 .4rem}
+.muted{color:var(--muted)}
+.btn{background:var(--gold);color:#111;border:none;border-radius:10px;padding:.6rem 1rem;font-weight:700;cursor:pointer}
+.btn.ghost{background:#2b2b2e;color:var(--text);border:1px solid var(--border)}
+
+.topbar{
+  display:flex;gap:10px;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-bottom:1px solid var(--border);
+  position:sticky;top:0;background:rgba(15,15,16,.9);
+  backdrop-filter:saturate(1.2) blur(6px);z-index:10
+}
+.topbar .center{text-align:center}
+.topbar h1{color:var(--gold);letter-spacing:.5px}
+#reloj{font-variant-numeric:tabular-nums;color:var(--muted)}
+
+.container{max-width:1200px;margin:16px auto;padding:0 12px;display:grid;gap:14px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:14px}
+
+.grid-form{
+  display:grid;
+  grid-template-columns: 160px 200px 100px 220px 1fr 130px;
+  gap:8px
+}
+.grid-form input, .grid-form select{
+  height:40px;border-radius:10px;border:1px solid var(--border);
+  background:#101114;color:var(--text);padding:0 .6rem
+}
+
+.row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.row.between{justify-content:space-between}
+.row input{height:38px;border-radius:10px;border:1px solid var(--border);background:#101114;color:var(--text);padding:0 .6rem}
+
+.table-wrap{overflow:auto;border:1px solid var(--border);border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{border-bottom:1px solid var(--border);padding:10px;text-align:left}
+th{background:#15161a;position:sticky;top:0}
+tbody tr:hover{background:#16171c}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:#111;color:var(--text);font-size:12px}
+
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog{border:none;border-radius:16px;padding:0}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;min-width:320px}
+menu{display:flex;justify-content:flex-end;gap:10px;margin:12px 0 0;padding:0}
+.totals{color:var(--muted);font-weight:600}
+
+/* foco inicial y navegación */
+.field input:focus, .field textarea:focus { outline: 2px solid #3a3a40 }
+
+/* chips de control */
+.ctrl-chips { display:flex; gap:6px; align-items:center; }
+.chip { font-size:16px; line-height:1; padding:4px 6px; border-radius:8px; border:1px solid var(--border); background:#111; cursor:pointer; opacity:.7; }
+.chip.on { background:#1f2a12; border-color:#355e16; opacity:1 }
+.chip.money.on { background:#2a1f12; border-color:#5e3b16 }
+.chip.cross.on { background:#2a1414; border-color:#5e1616 }
+
+/* notas: sucia vs guardada */
+#notas-dia.dirty { background:#0c0c0d; border-color:#3a3a3d; }
+#notas-dia.saved { background:#101114; border-color:var(--border); }
+
+/* -------- Vista 2 columnas compacta (si la usás) -------- */
+.two-col #tabla-premios tbody{display:grid;grid-template-columns: 1fr 1fr;gap:0}
+.two-col #tabla-premios thead{display:none}
+.two-col #tabla-premios tr{display:grid;grid-template-columns: repeat(8, minmax(0,1fr));border-bottom:1px dashed var(--border)}
+
+/* -------- Alinear último borde a Eliminar (sin aire) -------- */
+.table-wrap{padding-right:0}
+#tabla-premios{table-layout:fixed}
+#tabla-premios th:last-child, #tabla-premios td:last-child{ text-align:right; padding-right:0; width:1%; white-space:nowrap }
+#tabla-premios th:nth-last-child(2), #tabla-premios td:nth-last-child(2){ width:1%; white-space:nowrap }
+#tabla-premios td:last-child .btn{ margin-right:0 }
+
+/* ---------------- Responsive (PC normal / Tablet / Mobile) ---------------- */
+
+/* <= 1200px (laptops estándar) */
+@media (max-width:1200px){
+  .container{max-width:100%}
+  .grid-form{ grid-template-columns: 1fr 1fr 120px 1fr 1fr 120px; }
+  table{font-size:14px}
+  th,td{padding:8px}
+}
+
+/* <= 900px (tablets) */
+@media (max-width:900px){
+  .grid-form{ grid-template-columns: 1fr 1fr; gap:6px; }
+  .grid-form > button{ justify-self:end }
+  table{font-size:13px}
+  th,td{padding:7px}
+}
+
+/* <= 640px (celulares) */
+@media (max-width:640px){
+  .grid-form{ grid-template-columns: 1fr; }
+  .btn{ padding:.5rem .8rem; font-size:14px; }
+  table{font-size:12px}
+  th,td{padding:6px}
+}
+
+/* ---------------- 10% más chico sólo en pantallas MUY grandes ---------------- */
+/* Chrome/Edge/Opera soportan zoom => aplica a todo sin romper sticky */
+@media (min-width:1700px){
+  body{ zoom:0.9; }
+}
+
+/* Fallback para navegadores sin 'zoom' (Safari viejo, etc.) */
+/* Escalamos los bloques principales y compensamos el ancho para que no se encojan */
+@supports not (zoom:1){
+  @media (min-width:1700px){
+    .topbar, .container{
+      transform:scale(.9);
+      transform-origin: top center;
+      width:111.111%;             /* 1 / 0.9 */
+    }
+  }
+}
+
+/* Evitar scroll horizontal por escalado */
+html, body{ max-width:100%; overflow-x:hidden; }

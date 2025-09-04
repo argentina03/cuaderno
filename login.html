@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cuaderno • Ingreso</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{ --bg:#0f0f10; --card:#1a1b1e; --muted:#b8b8b8; --gold:#ffd700; --text:#f5f5f7; --border:#2c2c2f; }
+    *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:var(--bg);color:var(--text);font:16px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;max-width:380px;width:100%}
+    h1{margin:0 0 6px;color:var(--gold);text-align:center;letter-spacing:.5px}
+    .muted{color:var(--muted);text-align:center;margin:0 0 16px}
+    label{display:block;font-size:12px;color:var(--muted);margin:8px 0 6px}
+    input{width:100%;height:42px;border-radius:10px;border:1px solid var(--border);background:#101114;color:#fff;padding:0 .7rem}
+    input:focus{outline:2px solid #3a3a40}
+    .btn{width:100%;margin-top:12px;background:var(--gold);color:#111;border:none;border-radius:10px;padding:.65rem .9rem;font-weight:700;cursor:pointer}
+    .err{margin-top:8px;color:#ff6b6b;font-size:13px;min-height:1.2em;text-align:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1>CUADERNO DIGITAL</h1>
+      <p class="muted">Ingresá tu usuario y clave</p>
+      <form id="login-form" autocomplete="off">
+        <label>Usuario</label>
+        <input id="usuario" placeholder="Ej: 2323" inputmode="numeric" />
+        <label>Clave</label>
+        <input id="clave" type="password" placeholder="••••••" />
+        <button class="btn" type="submit">Entrar</button>
+        <div id="msg" class="err"></div>
+      </form>
+    </section>
+  </div>
+
+  <script type="module">
+    console.log('[LOGIN] init');
+
+    const SUPABASE_URL  = 'https://floigaudprqfbwhwzbmw.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2lnYXVkcHJxZmJ3aHd6Ym13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MTkyNDcsImV4cCI6MjA2OTQ5NTI0N30.guc4XWLGcJCcLNaJL2S1jEla944YPxOZr2oJPJRDBTA';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    const form = document.getElementById('login-form');
+    const u = document.getElementById('usuario');
+    const p = document.getElementById('clave');
+    const msg = document.getElementById('msg');
+
+    // si ya hay sesión → directo a index
+    (async () => {
+      const { data:{session}, error } = await supabase.auth.getSession();
+      console.log('[LOGIN] getSession', {session, error});
+      if (session?.user?.email){
+        const code = session.user.email.split('@')[0];
+        localStorage.setItem('usuario_id', code);
+        localStorage.setItem('sb_user_id', session.user.id);
+        location.replace('index.html');
+      }
+    })();
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      msg.textContent = '';
+      const code = (u.value || '').trim();
+      const pass = (p.value || '').trim();
+      if(!code || !pass){ msg.textContent = 'Completá usuario y clave'; return; }
+      const email = `${code}@cuaderno.local`;
+      console.log('[LOGIN] signInWithPassword', email);
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      console.log('[LOGIN] signIn result', {data, error});
+
+      if (error){ msg.textContent = 'Usuario o clave incorrectos'; return; }
+
+      localStorage.setItem('usuario_id', code);
+      localStorage.setItem('sb_user_id', data.user.id);
+      location.replace('index.html');
+    });
+  </script>
+</body>
+</html>
