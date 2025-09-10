@@ -340,7 +340,7 @@ body:not(.theme-light) #notas-dia.saved{
         </div>
 
         <div class="row between" style="margin-top:12px">
-          <strong>Ver otro día (solo lectura):</strong>
+          <strong>Ver otro día:</strong>
           <input type="date" id="ver-fecha">
         </div>
 
@@ -531,7 +531,7 @@ btnControl.textContent = controlMode ? 'Controlar (ON)' : 'Controlar';
   render();
 });
 
-    <!-- debe existir el script de supabase-js en el <head> -->
+    // debe existir el script de supabase-js en el <head>
 
   const SUPABASE_URL  = 'https://floigaudprqfbwhwzbmw.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2lnYXVkcHJxZmJ3aHd6Ym13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MTkyNDcsImV4cCI6MjA2OTQ5NTI0N30.guc4XWLGcJCcLNaJL2S1jEla944YPxOZr2oJPJRDBTA';
@@ -655,10 +655,14 @@ window.addEventListener('storage', (ev) => {
   refocusAfterSave();
 });
 
-    verFecha.addEventListener('change',()=>{
+verFecha.addEventListener('change', ()=>{
+  // autosave si hay cambios sin guardar
+  if (notasDia.classList.contains('dirty')) {
+    saveText('notas', fechaListado, notasDia.value);
+    document.getElementById('notas-save')?.click(); // dispara upsert nube
+  }
   fechaListado = verFecha.value || hoyKey();
   diaLabel.textContent = 'Día: ' + fechaListado;
-  // pedir a la nube los datos de ese día (si el adaptador ya cargó)
   try { window.cloud?.pull?.(fechaListado); } catch {}
   render();
 });
@@ -979,8 +983,19 @@ tr.innerHTML = `
       
     }
 
-    function loadNotas(){ notasDia.value=loadText('notas', fechaListado); notasDia.disabled=(fechaListado!==hoyKey()) && !controlMode; }
-    notasSave.addEventListener('click',()=>{ if((fechaListado!==hoyKey()) && !controlMode) return; saveText('notas', fechaListado, notasDia.value); notasDia.classList.remove('dirty'); notasDia.classList.add('saved'); });
+    function loadNotas(){
+  notasDia.value = loadText('notas', fechaListado);
+  notasDia.disabled = false;            // 👈 siempre editable
+  notasDia.classList.remove('saved');
+}
+
+notasSave.addEventListener('click', ()=>{
+  // guarda SIEMPRE en la fecha seleccionada
+  saveText('notas', fechaListado, notasDia.value);
+  window.cloud?.saveNotas?.(fechaListado, notasDia.value); // ⬅️ sube a la nube (si el adaptador expone este método)
+  notasDia.classList.remove('dirty');
+  notasDia.classList.add('saved');
+});
 
     render();
 // === Delegación global: eliminar de PAGOS con nube (robusto) ===

@@ -37,10 +37,9 @@ function selectedDate(){
   hookOficina(USER_ID);
   hookAciertosOfi(USER_ID);
   hookPagos(USER_ID);
-  hookNotas(USER_ID);
   hookControl(USER_ID);
-
-  // Helpers globales para que el index use sid exacto y para pedir otro día
+  
+    // Helpers globales para que el index use sid exacto y para pedir otro día
   window.cloud = {
     async premiosUpdateBySid(sid, fields){
       return supabase.from('premios').update({
@@ -51,13 +50,48 @@ function selectedDate(){
         notas:    fields.notas    ?? undefined
       }).eq('id', sid);
     },
-    async premiosDeleteBySid(sid){ return supabase.from('premios').update({ eliminado:true }).eq('id', sid); },
 
-    async pagosToggleBySid(sid, toggles){ return supabase.from('pg_pagos').update(toggles).eq('id', sid); },
-    async pagosDeleteBySid(sid){ return supabase.from('pg_pagos').update({ eliminado:true }).eq('id', sid); },
+    async premiosDeleteBySid(sid){
+      return supabase.from('premios').update({ eliminado:true }).eq('id', sid);
+    },
 
-    async ofiDeleteBySid(sid){ return supabase.from('ofi_movimientos').update({ eliminado:true }).eq('id', sid); },
-    async aoDeleteBySid(sid){  return supabase.from('ao_aciertos').update({ eliminado:true }).eq('id', sid); },
+    async pagosToggleBySid(sid, toggles){
+      return supabase.from('pg_pagos').update(toggles).eq('id', sid);
+    },
+
+    async pagosDeleteBySid(sid){
+      return supabase.from('pg_pagos').update({ eliminado:true }).eq('id', sid);
+    },
+
+    async ofiDeleteBySid(sid){
+      return supabase.from('ofi_movimientos').update({ eliminado:true }).eq('id', sid);
+    },
+
+    async aoDeleteBySid(sid){
+      return supabase.from('ao_aciertos').update({ eliminado:true }).eq('id', sid);
+    },
+
+    // 👇👇👇 NUEVO: usado por index.html → window.cloud.saveNotas(fecha, texto)
+    async saveNotas(fecha, texto){
+      const userId  = localStorage.getItem('sb_user_id');
+      const row = {
+        user_id: userId,
+        fecha,
+        texto,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await supabase.from('notas_dia').upsert(row);
+      if (error) throw error;
+
+      // espejo local para que se vea al instante
+      const uidLocal = localStorage.getItem('usuario_id');
+      localStorage.setItem(`notas:${uidLocal}:${fecha}`, texto);
+
+      // avisar a otras pestañas / vistas
+      try {
+        window.dispatchEvent(new StorageEvent('storage', { key:'__sync__', newValue: String(Date.now()) }));
+      } catch {}
+    },
 
     async pull(fecha){
       await initialPull(USER_ID, fecha || selectedDate());
@@ -314,24 +348,6 @@ function hookPagos(USER_ID){
   }, { capture:true });
 }
 
-/* ===== NOTAS ===== */
-function hookNotas(USER_ID){
-  const btn = document.getElementById('notas-save');
-  const ta  = document.getElementById('notas-dia');
-  if(!btn || !ta) return;
-
-  btn.addEventListener('click', async ()=>{
-    try{
-      const fecha = selectedDate();
-      const row = { user_id: USER_ID, fecha, texto: ta.value, updated_at: new Date().toISOString() };
-      const { error } = await supabase.from('notas_dia').upsert(row);
-      if(error) throw error;
-    }catch(err){
-      console.error('[NOTAS upsert] error', err);
-      alert('Error guardando notas en la nube.');
-    }
-  }, { capture:true });
-}
 
 /* ===== CONTROL GLOBAL (pull periódico para multi-dispositivo) ===== */
 function hookControl(USER_ID){
