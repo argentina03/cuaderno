@@ -13,7 +13,8 @@ const msg = document.getElementById('msg');
 (async ()=>{
   const { data:{ session } } = await supabase.auth.getSession();
   if (session?.user) {
-    localStorage.setItem('usuario_id', session.user.id); // compat
+    localStorage.setItem('sb_user_id', session.user.id); // solo sb_user_id
+// NO toques usuario_id (que siga siendo 2323/2334/etc)// compat
     location.replace('index.html');
   }
 })();
@@ -33,6 +34,7 @@ form?.addEventListener('submit', async (e)=>{
     msg.textContent = 'Usuario o clave incorrectos';
     return;
   }
-  localStorage.setItem('usuario_id', data.user.id); // compat con tu código
+  localStorage.setItem('sb_user_id', data.user.id); // UUID de sesión (para Supabase)
+localStorage.setItem('usuario_id', u);            // tu ID lógico: 2323 / 2334 / etc.
   location.replace('index.html');
 });

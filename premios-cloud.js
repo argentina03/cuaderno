@@ -180,58 +180,58 @@ async function initialPull(USER_ID, fecha) {
 
   // PREMIOS
   if (premiosRes.error) console.error('[PULL premios] error', premiosRes.error);
-  const premiosRows = (premiosRes.data||[]).map(r => ({
-  id: Date.parse(r.hora),
-  sid: r.id,
-  cid: r.cid,          // ← agregar
-  hora: r.hora,
-  ticket: r.ticket,
-  tipo: r.tipo,
-  cantidad: r.cantidad ?? '',
-  cliente: r.cliente,
-  notas: r.notas ?? '',
-  redoblona: null,
-  status_ok: !!r.status_ok
-}));
-  localStorage.setItem(K('premios'), JSON.stringify(premiosRows));
+   const premiosRows = (premiosRes.data||[]).map(r => ({
+     id: String(r.cid || r.id),   // ← id local SIEMPRE string, priorizamos cid
+     sid: r.id,
+     cid: r.cid ?? null,
+     hora: r.hora,
+     ticket: r.ticket,
+     tipo: r.tipo,
+     cantidad: r.cantidad ?? '',
+     cliente: r.cliente,
+     notas: r.notas ?? '',
+     redoblona: null,
+     status_ok: !!r.status_ok
+   }));
+    localStorage.setItem(K('premios'), JSON.stringify(premiosRows));
 
   // OFICINA
   if (ofiRes.error) console.error('[PULL ofi] error', ofiRes.error);
-  const ofiRows = (ofiRes.data||[]).map(r => ({
-  id: Date.parse(r.hora),
-  sid: r.id,
-  cid: r.cid,          // ← agregar
-  hora: r.hora,
-  monto: r.monto
-}));
-  localStorage.setItem(K('ofi'), JSON.stringify(ofiRows));
+   const ofiRows = (ofiRes.data||[]).map(r => ({
+     id: String(r.cid || r.id),
+     sid: r.id,
+     cid: r.cid ?? null,
+     hora: r.hora,
+     monto: r.monto
+   }));
+    localStorage.setItem(K('ofi'), JSON.stringify(ofiRows));
 
   // ACIERTOS OFI
   if (aoRes.error) console.error('[PULL ao] error', aoRes.error);
-  const aoRows = (aoRes.data||[]).map(r => ({
-  id: Date.parse(r.hora),
-  sid: r.id,
-  cid: r.cid,          // ← agregar
-  hora: r.hora,
-  acierto: r.acierto,
-  por: r.por ?? '',
-  nombre: r.nombre
-}));
-  localStorage.setItem(K('ao'), JSON.stringify(aoRows));
+   const aoRows = (aoRes.data||[]).map(r => ({
+     id: String(r.cid || r.id),
+     sid: r.id,
+     cid: r.cid ?? null,
+     hora: r.hora,
+     acierto: r.acierto,
+     por: r.por ?? '',
+     nombre: r.nombre
+   }));
+    localStorage.setItem(K('ao'), JSON.stringify(aoRows));
 
   // PAGOS
   if (pgRes.error) console.error('[PULL pg] error', pgRes.error);
-  const pgRows = (pgRes.data||[]).map(r => ({
-  id: Date.parse(r.hora),
-  sid: r.id,
-  cid: r.cid,          // ← agregar
-  hora: r.hora,
-  monto: r.monto,
-  cliente: r.cliente,
-  cuenta: r.cuenta ?? '',
-  status: { ok: !!r.status_ok, money: !!r.status_money, cross: !!r.status_cross }
-}));
-  localStorage.setItem(K('pg'), JSON.stringify(pgRows));
+   const pgRows = (pgRes.data||[]).map(r => ({
+     id: String(r.cid || r.id),
+     sid: r.id,
+     cid: r.cid ?? null,
+     hora: r.hora,
+     monto: r.monto,
+     cliente: r.cliente,
+     cuenta: r.cuenta ?? '',
+     status: { ok: !!r.status_ok, money: !!r.status_money, cross: !!r.status_cross }
+   }));
+    localStorage.setItem(K('pg'), JSON.stringify(pgRows));
   console.log('[PULL pagos]', pgRows.length);
 
   // NOTAS
@@ -288,11 +288,12 @@ function hookPremios(USER_ID){
       // pegar sid al último item local del día seleccionado
       const K = (base)=>`${base}:${localStorage.getItem('usuario_id')}:${fecha}`;
       const arr = JSON.parse(localStorage.getItem(K('premios'))||'[]');
-      if (arr.length){
-        arr[arr.length-1].sid  = data.id;
-        arr[arr.length-1].hora = data.hora || arr[arr.length-1].hora;
-        localStorage.setItem(K('premios'), JSON.stringify(arr));
-      }
+const j = arr.findIndex(x => x.cid === row.cid);
+if (j >= 0) {
+  arr[j].sid  = data.id;
+  arr[j].hora = data.hora || arr[j].hora;
+  localStorage.setItem(K('premios'), JSON.stringify(arr));
+}
     }catch(err){
       console.error('[PREMIOS insert] error', err);
       alert('Error guardando en la nube (premios).');
@@ -408,7 +409,10 @@ function hookNotas(USER_ID){
     try {
       const fecha = selectedDate();
       const row = { user_id: USER_ID, fecha, texto: ta.value, updated_at: new Date().toISOString() };
-      const { error } = await supabase.from('notas_dia').upsert(row);
+      const { error } = await supabase.from('notas_dia')
+  .upsert(row, { onConflict: 'user_id,fecha' })
+  .select()
+  .single();
       if (error) throw error;
     } catch (err) {
       console.error('[NOTAS upsert] error', err);

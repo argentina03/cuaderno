@@ -803,7 +803,7 @@ window.addEventListener('storage', (ev) => {
   if (_isRecentDuplicate('premios', _premiosKey)) return;
 
   // UI instantánea (local-first)
-  const tempId = Date.now();
+  const tempId = crypto.randomUUID();
   const arr = load('premios', f);
   arr.push({
     id: tempId,
@@ -822,10 +822,14 @@ window.addEventListener('storage', (ev) => {
   if (fechaListado === f) render();
 
   // Nube en segundo plano (sin .select() para menos latencia)
-  sb.from('premios').insert(payload, { returning: 'minimal' })
+   sb.from('premios').insert(payload, {
+   returning: 'minimal',
+   onConflict: 'user_id,fecha,cid',
+   ignoreDuplicates: true
+ })
     .then(() => {
       // Podés hacer un pull más tarde si necesitás el sid.
-      // window.cloud?.pull?.(f).then(()=>render()).catch(()=>{});
+      window.cloud?.pull?.(f).then(()=>render()).catch(()=>{});
     })
     .catch(err => {
       // 23505 = unique violation (duplicado por mismo cid) → safe to ignore
@@ -971,7 +975,7 @@ window.__app_ready = true;
 
     function openEdit(e){
   if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para editar.'); return; }
-      const id=Number(e.currentTarget.dataset.id);
+      const id = String(e.currentTarget.dataset.id || '');
       const arr=load('premios', fechaListado);
       const row=arr.find(x=>x.id===id); if(!row) return;
       editingId=id;
@@ -1023,7 +1027,7 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
 
     async function delRow(e){
   if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
-  const id=Number(e.currentTarget.dataset.id);
+  const id = String(e.currentTarget.dataset.id || '');
   if(!confirm('¿Eliminar este registro?')) return;
 
   const arr = load('premios', fechaListado);
@@ -1033,14 +1037,9 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
     if (row?.sid) {
       await sb.from('premios').update({ eliminado:true }).eq('id', row.sid);
     } else {
-      // Fallback (si no tuviera sid): borrar el más reciente de hoy
-      await sb.from('premios')
-        .update({ eliminado:true })
-        .eq('user_id', localStorage.getItem('sb_user_id'))
-        .eq('fecha', fechaListado)
-        .order('hora', { ascending:false })
-        .limit(1);
-    }
+  alert('Este registro aún no está sincronizado con la nube (sin SID). Reintentalo después de refrescar.');
+  return; // no toco nube para no afectar otros
+}
   }catch(err){
     console.error('[PREMIOS delete] cloud error', err);
     alert('Error borrando en la nube (premios).');
@@ -1060,7 +1059,7 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
 
   const f = verFecha.value || hoyKey();
 
-  const tempId = Date.now();
+  const tempId = crypto.randomUUID();
   const cid = crypto.randomUUID();                // 👈 NUEVO
   const arr = load('ofi', f);
   arr.push({ id: tempId, cid, sid: null, hora: new Date().toISOString(), monto: Number(v) });
@@ -1070,8 +1069,12 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   (async () => {
     try {
       const uid = (await sb.auth.getSession()).data.session.user.id;
-      await sb.from('ofi_movimientos')
-        .insert({ user_id: uid, fecha: f, monto: Number(v), eliminado: false, cid }, { returning:'minimal' }); // 👈 NUEVO
+       await sb.from('ofi_movimientos')
+   .insert({ user_id: uid, fecha: f, monto: Number(v), eliminado: false, cid }, {
+     returning: 'minimal',
+     onConflict: 'user_id,fecha,cid',
+     ignoreDuplicates: true
+   });
 
     } catch (e) {
       if (String(e?.code) !== '23505') console.error('[OFI insert] nube', e); // duplicado → ignorable
@@ -1096,7 +1099,7 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   ofiTotal.textContent = '$'+total.toLocaleString('es-AR');
 
   ofiBody.querySelectorAll('.ofi-del').forEach(b=>b.addEventListener('click', async (e)=>{
-    const id = Number(e.currentTarget.dataset.id);
+    const id = String(e.currentTarget.dataset.id || '');
     if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
     if (!confirm('¿Eliminar este movimiento?')) return;
 
@@ -1134,7 +1137,7 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   const f = verFecha.value || hoyKey();
   const cid = crypto.randomUUID();                 // 👈 NUEVO
 
-  const tempId = Date.now();
+  const tempId = crypto.randomUUID();
   const arr = load('ao', f);
   arr.push({ id: tempId, cid, sid: null, hora: new Date().toISOString(),
              acierto: ac, por, nombre: n, pending: true });
@@ -1144,10 +1147,14 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   setTimeout(async ()=>{
     try{
       const uid = (await sb.auth.getSession()).data.session.user.id;
-      await sb.from('ao_aciertos').insert({
-        user_id: uid, fecha: f, acierto: ac, por: por?Number(por):null, nombre: n,
-        eliminado:false, cid                                  // 👈 NUEVO
-      }, { returning:'minimal' });
+     await sb.from('ao_aciertos').insert({
+   user_id: uid, fecha: f, acierto: ac, por: por?Number(por):null, nombre: n,
+   eliminado:false, cid
+ }, {
+   returning: 'minimal',
+   onConflict: 'user_id,fecha,cid',
+   ignoreDuplicates: true
+ });
 
       // opcional: sacar "pending" con un pull posterior
       // window.cloud?.pull?.(f).then(()=>renderAciertos()).catch(()=>{})
@@ -1184,7 +1191,7 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   }
 
   aoBody.querySelectorAll('.ao-del').forEach(b=>b.addEventListener('click', async (e)=>{
-    const id = Number(e.currentTarget.dataset.id);
+    const id = String(e.currentTarget.dataset.id || '');
     if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
     if (!confirm('¿Eliminar este acierto de oficina?')) return;
 
@@ -1221,7 +1228,7 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   const f = verFecha.value || hoyKey();
   const cid = crypto.randomUUID();                 // 👈 NUEVO
 
-  const tempId = Date.now();
+  const tempId = crypto.randomUUID();
   const arr = load('pg', f);
   arr.push({ id: tempId, cid, sid:null, hora:new Date().toISOString(),
              monto:Number(m), cliente:c, cuenta:a||'',
@@ -1232,11 +1239,15 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   setTimeout(async ()=>{
     try{
       const uid = (await sb.auth.getSession()).data.session.user.id;
-      await sb.from('pg_pagos').insert({
-        user_id: uid, fecha:f, monto:Number(m), cliente:c, cuenta:a||null,
-        status_ok:false, status_money:false, status_cross:false,
-        eliminado:false, cid                                // 👈 NUEVO
-      }, { returning:'minimal' });
+     await sb.from('pg_pagos').insert({
+   user_id: uid, fecha:f, monto:Number(m), cliente:c, cuenta:a||null,
+   status_ok:false, status_money:false, status_cross:false,
+   eliminado:false, cid
+ }, {
+   returning: 'minimal',
+   onConflict: 'user_id,fecha,cid',
+   ignoreDuplicates: true
+ });
 
       // opcional: luego hacé pull si querés `sid`
       // window.cloud?.pull?.(f).then(()=>renderPagos()).catch(()=>{})
@@ -1297,7 +1308,10 @@ const tdHTML = readOnly
     const uid = session.user.id;
     const f   = fechaListado;
 
-    const { error } = await sb.from('notas_dia').upsert({ user_id: uid, fecha: f, texto });
+    const { error } = await sb.from('notas_dia')
+  .upsert({ user_id: uid, fecha: f, texto }, { onConflict: 'user_id,fecha' })
+  .select()
+  .single();
     if (error) throw error;
 
     saveText('notas', f, texto);
@@ -1330,7 +1344,7 @@ document.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('.pg-del');
   if (!btn) return;
 
-  const id = Number(btn.dataset.id);
+  const id = String(btn.dataset.id || '');
   const sidFromDom = btn.dataset.sid || '';
   if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
   if (!id || !confirm('¿Eliminar este pago?')) return;
@@ -1401,7 +1415,7 @@ document.addEventListener('click', async (e)=>{
   if (!controlMode) return;             // sólo funciona en modo control
 
   const div = b.closest('.ctrl-chips');
-  const id  = Number(div.dataset.id);
+  const id  = String(div.dataset.id || '');
   const sid = div.dataset.sid || '';
   const arr = load('pg', fechaListado);
   const i   = arr.findIndex(x=>x.id===id);
@@ -1471,7 +1485,7 @@ document.addEventListener('click', async (e)=>{
   if (!wrap || wrap.dataset.scope !== 'premios') return;  // 👈 sólo premios
   if (!controlMode) return;                               // interactivo solo con control ON
 
-  const id  = Number(wrap.dataset.id);
+  const id  = String(wrap.dataset.id || '');
   const sid = wrap.dataset.sid || '';
   const arr = load('premios', fechaListado);
   const i   = arr.findIndex(x=>x.id===id);
