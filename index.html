@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Cuaderno de Premios</title>
@@ -264,16 +265,24 @@ body.theme-light #notas-dia.saved { background:#ffffff !important; border-color:
 #two-col-wrap table th:nth-child(6),
 #two-col-wrap table td:nth-child(6){ width:120px; overflow:hidden; text-overflow:ellipsis; }
 
-/* Acciones (emoji) súper chicos */
-#one-col-wrap table th:nth-child(7),
-#one-col-wrap table td:nth-child(7),
-#two-col-wrap table th:nth-child(7),
-#two-col-wrap table td:nth-child(7),
+/* Acciones (emoji) súper chicos – ahora son col 8 y 9 */
 #one-col-wrap table th:nth-child(8),
 #one-col-wrap table td:nth-child(8),
 #two-col-wrap table th:nth-child(8),
-#two-col-wrap table td:nth-child(8){ width:42px; text-align:left; }
-
+#two-col-wrap table td:nth-child(8),
+#one-col-wrap table th:nth-child(9),
+#one-col-wrap table td:nth-child(9),
+#two-col-wrap table th:nth-child(9),
+#two-col-wrap table td:nth-child(9){
+  width:42px; text-align:left;
+}
+/* Nueva columna Estado (col 7) */
+#one-col-wrap table th:nth-child(7),
+#one-col-wrap table td:nth-child(7),
+#two-col-wrap table th:nth-child(7),
+#two-col-wrap table td:nth-child(7){
+  width:56px; text-align:left;
+}
 /* Ajustes finos: badge y celdas más compactos */
 .badge{ padding:1px 6px; font-size:11px; }
 th, td{ padding:4px 6px; }
@@ -294,6 +303,29 @@ body:not(.theme-light) #notas-dia.saved{
   border-color:#2c2c2f !important;
   box-shadow:none !important;
 }
+/* Switch de pantallas */
+.hide{ display:none !important; }
+/* Switch de pantallas */
+.hide{ display:none !important; }
+
+/* Botón deshabilitado (cuando estás en Juegos, desactivo 2 columnas) */
+.btn[disabled]{ opacity:.5; cursor:default; }
+#calc-balance .mini.list table td{white-space:nowrap}
+#calc-balance .cb-del{padding:2px 6px}
+#calc-balance .field input{min-width:120px}
+#calc-balance .field input{ height:32px !important; }
+#calc-balance .badge{ font-size:12.5px !important; padding:2px 10px !important; }
+/* calculadora compacta */
+#calc-balance .field input{ height:32px !important; }
+#calc-balance .badge{ font-size:12.5px !important; padding:2px 10px !important; }
+
+/* grilla de 3x2 para el historial */
+.cb-grid6{ display:grid; gap:8px; grid-template-columns:repeat(3,1fr); }
+@media (max-width:980px){ .cb-grid6{ grid-template-columns:1fr; } }
+
+.cb-box{ border:1px solid var(--border); background:#111; border-radius:10px; padding:8px; font-size:12.5px; }
+.cb-list{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+.cb-chip{ padding:2px 6px; border:1px solid var(--border); background:#1a1b1e; border-radius:999px; }
 /* Seguridad: evitar scroll horizontal si el user hace zoom del browser */
 
   </style>
@@ -302,7 +334,7 @@ body:not(.theme-light) #notas-dia.saved{
 
 <!-- Adaptador nube que ya subiste -->
 <script type="module" src="premios-cloud.js"></script>
-
+<script type="module" src="juegos.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -315,12 +347,15 @@ body:not(.theme-light) #notas-dia.saved{
   <div id="reloj"></div>
 </div>
     <div style="display:flex; gap:8px">
-  <button id="btn-tema" class="btn ghost" type="button">Claro</button>
-  <button id="btn-dos-col" class="btn ghost">Vista 2 columnas</button>
+  <button id="btn-pantalla1" class="btn" type="button">1</button>
+  <button id="btn-pantalla2" class="btn ghost" type="button">2</button>
+  <button id="btn-tema"      class="btn ghost" type="button">Claro</button>
+  <button id="btn-dos-col"   class="btn ghost">Vista 2 columnas</button>
   <button id="btn-cerrar-sesion" class="btn ghost">Cerrar sesión</button>
 </div>
   </header>
-
+<!-- PANTALLA 1 -->
+<section id="screen-premios">
   <main class="container">
     <div class="layout">
       <!-- IZQUIERDA -->
@@ -340,7 +375,7 @@ body:not(.theme-light) #notas-dia.saved{
         </div>
 
         <div class="row between" style="margin-top:12px">
-          <strong>Ver otro día:</strong>
+          <strong>Ver día:</strong>
           <input type="date" id="ver-fecha">
         </div>
 
@@ -354,7 +389,7 @@ body:not(.theme-light) #notas-dia.saved{
             <div class="table-wrap">
               <table id="tabla-premios">
                 <thead>
-                  <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
+                  <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
                 </thead>
                 <tbody id="premios-tbody"></tbody>
               </table>
@@ -363,10 +398,10 @@ body:not(.theme-light) #notas-dia.saved{
 
           <div id="two-col-wrap">
             <div class="col"><div class="table-wrap"><table><thead>
-              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
+              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
             </thead><tbody id="col-left"></tbody></table></div></div>
             <div class="col"><div class="table-wrap"><table><thead>
-              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
+              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
             </thead><tbody id="col-right"></tbody></table></div></div>
           </div>
 
@@ -436,10 +471,75 @@ body:not(.theme-light) #notas-dia.saved{
           <button id="notas-save" class="btn" type="button">Guardar notas</button>
           <small class="muted"></small>
         </section>
+        <!-- 🔢 Calculadora de cliente -->
+<section class="card mini" id="calc-balance" style="margin-top:10px">
+  <h2 style="margin:0 0 6px">Calculadora de cliente</h2>
+
+  <!-- 3 arriba -->
+  <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:2px">
+    <div class="field" style="min-width:200px;flex:1">
+      <label>Jugó</label>
+      <input id="cb-jugo" inputmode="numeric" />
+    </div>
+    <div class="field" style="min-width:200px;flex:1">
+      <label>Ganó</label>
+      <input id="cb-gano" inputmode="numeric" />
+    </div>
+    <div class="field" style="min-width:200px;flex:1">
+      <label>Pagó</label>
+      <input id="cb-pago" inputmode="numeric" />
+    </div>
+  </div>
+
+  <!-- 3 abajo -->
+  <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:8px;align-items:flex-end">
+    <div class="field" style="min-width:200px;flex:1">
+      <label>Tenía a favor</label>
+      <input id="cb-favor" inputmode="numeric" />
+    </div>
+    <div class="field" style="min-width:200px;flex:1">
+      <label>Debía</label>
+      <input id="cb-debia" inputmode="numeric" />
+    </div>
+    <div class="field" style="min-width:200px;flex:1">
+      <label>Saldo</label>
+      <div id="cb-saldo"
+           style="font-weight:800; font-size:18px; padding:10px 12px; border-radius:10px; display:inline-block; min-width:160px; text-align:center;">
+        + $0
+      </div>
+    </div>
+  </div>
+
+  <!-- Botones -->
+  <div class="row between" style="margin-top:10px">
+    <div class="row" style="gap:8px;margin:0">
+      <button class="btn ghost" type="button" id="cb-clear">Limpiar</button>
+      <button class="btn ghost" type="button" id="cb-copy">Copiar</button>
+    </div>
+  </div>
+
+  <!-- Historial detallado -->
+  <div class="row" style="gap:10px;margin-top:12px;flex-wrap:wrap">
+    <div class="field" style="flex:1"><label>Jugó</label><div id="h-jugo">—</div></div>
+    <div class="field" style="flex:1"><label>Ganó</label><div id="h-gano">—</div></div>
+    <div class="field" style="flex:1"><label>Pagó</label><div id="h-pago">—</div></div>
+    <div class="field" style="flex:1"><label>Tenía a favor</label><div id="h-favor">—</div></div>
+    <div class="field" style="flex:1"><label>Debía</label><div id="h-debia">—</div></div>
+  </div>
+</section>
       </section>
     </div>
   </main>
-
+</section>
+<!-- PANTALLA 2 -->
+<section id="screen-juegos" class="hide">
+  <main class="container">
+    <div class="card">
+      <h2 style="margin:0 0 8px">Panel de Juegos</h2>
+      <p class="muted" style="margin:0">Acá vamos a volcar el tablero de juegos. Por ahora es un placeholder.</p>
+    </div>
+  </main>
+</section>
   <!-- Modal edición -->
   <dialog id="modal-editar">
     <form method="dialog" class="modal">
@@ -470,7 +570,8 @@ body:not(.theme-light) #notas-dia.saved{
 
     let controlMode = false;
     const ctrlPass = "120212";
-
+const isToday   = (f) => f === hoyKey();
+const canModify = (f) => isToday(f) || controlMode;  // hoy libre, ayer/anteriores solo con Control ON
     const btnTwo=$('#btn-dos-col'), btnLogout=$('#btn-cerrar-sesion'), btnControl=$('#btn-control'), btnTema=$('#btn-tema');
     // Estado inicial del botón según lo último guardado
 controlMode = (localStorage.getItem('control_activo') === '1');
@@ -493,45 +594,65 @@ btnControl.textContent = controlMode ? 'Controlar (ON)' : 'Controlar';
 
     btnControl?.addEventListener('click', async ()=>{
   const USER_ID = localStorage.getItem('sb_user_id');
-  const fecha   = hoyKey();
+  if (!USER_ID) return alert('Sin sesión. Volvé a iniciar.');
 
   if (!controlMode) {
-    const p = prompt('Ingresá la clave de control:');
+    const p = prompt('Clave para entrar a Control:');
     if (p !== ctrlPass) return;
-    controlMode = true;
+    const f = verFecha.value || hoyKey();
+    try {
+      await window.cloud.controlOpen(f);
+      localStorage.setItem('control_activo','1');
+      localStorage.setItem('control_fecha', f);
+      controlMode = true;
+    } catch(e){ console.error(e); alert('No pude prender Control.'); }
   } else {
-    controlMode = false;
+    // dentro del else (cuando estaba ON y lo apagás)
+try {
+  const f = localStorage.getItem('control_fecha') || verFecha.value || hoyKey();
+  await window.cloud.controlClose(f);
+  // 🔒 limpiá local SIEMPRE
+  localStorage.setItem('control_activo','0');
+  localStorage.removeItem('control_fecha');
+  controlMode = false;
+} catch(e){ console.error(e); alert('No pude apagar Control.'); }
   }
 
-  // UI inmediata
+  // UI del botón
   btnControl.classList.toggle('ghost', !controlMode);
   btnControl.textContent = controlMode ? 'Controlar (ON)' : 'Controlar';
 
-  // 1) Persistir local (para recargas)
-  localStorage.setItem('control_activo', controlMode ? '1' : '0');
+  // 👇 siempre habilitado
+  verFecha.disabled = false;
 
-  // 2) Persistir en la nube (para otros dispositivos)
-  try{
-    await sb.from('control_estado').upsert({
-      user_id: USER_ID,
-      fecha,
-      activo: controlMode,
-      updated_at: new Date().toISOString()
-    });
-  }catch(e){
-    console.error('[CONTROL upsert] error', e);
-    alert('No pude guardar el estado de Control en la nube.');
-  }
-
-  // 3) Avisar a otras pestañas / listeners locales
-  try {
-    window.dispatchEvent(new StorageEvent('storage', {key:'__control__', newValue:Date.now().toString()}));
-  } catch {}
-
+  try { window.dispatchEvent(new StorageEvent('storage', {key:'__control__', newValue:Date.now().toString()})); } catch {}
   render();
 });
+// === ARRANQUE: si Control está ON, SIEMPRE fijar la fecha bloqueada y deshabilitar ===
+(function boot(){
+  // leemos lo que haya guardado
+  const on    = localStorage.getItem('control_activo') === '1';
+  const fLock = localStorage.getItem('control_fecha');
+  const f     = (on && fLock) ? fLock : (verFecha.value || hoyKey());
 
-    // debe existir el script de supabase-js en el <head>
+  controlMode      = on;
+  fechaListado     = f;
+  verFecha.value   = f;
+  diaLabel.textContent = 'Día: ' + f;
+
+  // botón según estado
+  btnControl.classList.toggle('ghost', !controlMode);
+  btnControl.textContent = controlMode ? 'Controlar (ON)' : 'Controlar';
+
+  // nunca bloqueamos el selector
+  verFecha.disabled = false;
+
+  // pintamos y sincronizamos ese día
+  window.__app_ready = true;
+  render();
+  window.cloud?.pull?.(f).then(()=>render()).catch(()=>{});
+})();
+  //- debe existir el script de supabase-js en el <head> -->//
 
   const SUPABASE_URL  = 'https://floigaudprqfbwhwzbmw.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsb2lnYXVkcHJxZmJ3aHd6Ym13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5MTkyNDcsImV4cCI6MjA2OTQ5NTI0N30.guc4XWLGcJCcLNaJL2S1jEla944YPxOZr2oJPJRDBTA';
@@ -539,12 +660,13 @@ window.__sb = window.__sb || window.supabase.createClient(SUPABASE_URL, SUPABASE
 const sb = window.__sb;
 // 🔒 Si no hay sesión → ir a login antes de seguir cargando la página
 (async () => {
-    const { data:{ session } } = await sb.auth.getSession();
-    if (!session) {
+  const { data:{ session } } = await sb.auth.getSession();
+  if (!session) {
       localStorage.clear();
       location.replace('login.html');  // 👉 redirige SIEMPRE si no hay sesión
       return;
     }
+      localStorage.setItem('sb_user_id', session.user.id);
     document.body.style.display = '';  // 👉 muestra la app SOLO con sesión
   })();
 btnLogout.addEventListener('click', async () => {
@@ -614,57 +736,106 @@ btnTema?.addEventListener('click', ()=>{
       if(parts.length===4){ return { red:true, t1:parts[0], p1:parts[1], t2:parts[2], p2:parts[3] }; }
       return { red:false, t1: raw.replace(/\D+/g,'').slice(0,4) };
     }
-// Cuando premios-cloud.js detecta cambios remotos dispara __control__ en storage
+// Cambios de estado de CONTROL (no bloquear el selector)
 window.addEventListener('storage', (ev) => {
-  if (ev.key === '__control__') {
-    const on = (localStorage.getItem('control_activo') === '1');
-    controlMode = on;
-    if (btnControl){
-      btnControl.classList.toggle('ghost', !on);
-      btnControl.textContent = on ? 'Controlar (ON)' : 'Controlar';
-    }
-    render();
-  }
-});
-window.addEventListener('storage', (ev) => {
-  if (ev.key === '__sync__') {
-    // llegó data nueva → solo repintá, NO cambies verFecha
-    render();
-  }
-});
-    document.getElementById('premio-form').addEventListener('submit',(e)=>{
-  e.preventDefault();
-  // USAR LA FECHA SELECCIONADA, no siempre hoy
-  const f = (verFecha.value && /^\d{4}-\d{2}-\d{2}$/.test(verFecha.value)) ? verFecha.value : hoyKey();
+  if (ev.key !== '__control__') return;
 
-  const parsed=parseTicketRedoblona(ticket.value);
-  const item={
-    id:Date.now(), hora:new Date().toISOString(),
-    ticket: parsed.t1 || '',
-    tipo:   (parsed.red ? parsed.p1 : (tipo.value||'').trim()),
-    cantidad:(cantidad.value||'').trim(),
-    cliente:(cliente.value||'').trim(),
-    notas:(notas.value||'').trim(),
-    redoblona: parsed.red ? { ticket2: parsed.t2, tipo2: parsed.p2 } : null
-  };
-  if(!item.ticket || !item.tipo || !item.cliente){ alert('Ticket, Números y Cliente son obligatorios'); return; }
-  const arr=load('premios', f); arr.push(item); save('premios', f, arr);
+  controlMode = (localStorage.getItem('control_activo') === '1');
+
+  // UI del botón
+  if (btnControl){
+    btnControl.classList.toggle('ghost', !controlMode);
+    btnControl.textContent = controlMode ? 'Controlar (ON)' : 'Controlar';
+  }
+
+  // 👇 siempre habilitado, incluso con control ON
+  verFecha.disabled = false;
+
+  render();
+});
+
+// Data nueva → repintar (sin tocar la fecha seleccionada)
+window.addEventListener('storage', (ev) => {
+  if (ev.key === '__sync__') render();
+});
+    document.getElementById('premio-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+
+  const f = (verFecha.value && /^\d{4}-\d{2}-\d{2}$/.test(verFecha.value)) ? verFecha.value : hoyKey();
+  const parsed = parseTicketRedoblona(ticket.value);
+  const payload = {
+  user_id: (await sb.auth.getSession()).data.session.user.id,
+  fecha: f,
+  ticket:  parsed.t1 || '',
+  tipo:    parsed.red ? parsed.p1 : (tipo.value||'').trim(),
+  cantidad: (cantidad.value||'').trim() ? Number(cantidad.value) : null,
+  cliente: (cliente.value||'').trim(),
+  notas:   (notas.value||'').trim(),
+  eliminado: false,
+  status_ok: false   // 👈 AGREGAR
+};
+
+  if(!payload.ticket || !payload.tipo || !payload.cliente){
+    alert('Ticket, Números y Cliente son obligatorios'); return;
+  }
+
+  // === UI optimista: primero local, después nube ===
+  const tempId = Date.now();
+  const arr = load('premios', f);
+  arr.push({
+  id: tempId,
+  sid: null,
+  hora: new Date().toISOString(),
+  ticket: payload.ticket,
+  tipo: payload.tipo,
+  cantidad: payload.cantidad,
+  cliente: payload.cliente,
+  notas: payload.notas,
+  redoblona: parsed.red ? { ticket2: parsed.t2, tipo2: parsed.p2 } : null,
+  status_ok: false    // 👈 AGREGAR
+});
+  save('premios', f, arr);
+  if (fechaListado === f) render();
+
+  // nube en 2º plano (pega sid/hora cuando vuelve)
+  sb.from('premios').insert(payload).select('id,hora').single()
+    .then(({ data, error }) => {
+      if (error) throw error;
+      const a2 = load('premios', f);
+      const i  = a2.findIndex(x => x.id === tempId);
+      if (i >= 0) {
+        a2[i].sid  = data.id;
+        a2[i].hora = data.hora || a2[i].hora;
+        save('premios', f, a2);
+        if (fechaListado === f) render();
+      }
+    })
+    .catch(err => {
+      console.error('[PREMIOS insert] nube', err);
+      // si querés, marcá el registro con un flag “pendiente”
+    });
+
+  // limpiar inputs y foco
   if(!keep.checked){ ticket.value=''; cantidad.value=''; cliente.value=''; }
   tipo.value=''; notas.value='';
-  if(fechaListado===f) render();
   refocusAfterSave();
 });
 
-verFecha.addEventListener('change', ()=>{
-  // autosave si hay cambios sin guardar
-  if (notasDia.classList.contains('dirty')) {
-    saveText('notas', fechaListado, notasDia.value);
-    document.getElementById('notas-save')?.click(); // dispara upsert nube
+  verFecha.addEventListener('change', ()=>{
+  const nueva = verFecha.value || hoyKey();
+
+  if (controlMode){
+    localStorage.setItem('control_fecha', nueva);
+    // mover lock, pero SIN esperar
+    window.cloud?.controlOpen?.(nueva).catch(()=>{});
   }
-  fechaListado = verFecha.value || hoyKey();
-  diaLabel.textContent = 'Día: ' + fechaListado;
-  try { window.cloud?.pull?.(fechaListado); } catch {}
+
+  fechaListado = nueva;
+  diaLabel.textContent = 'Día: ' + nueva;
+
+  // pintá ya con cache y después refrescá
   render();
+  window.cloud?.pull?.(nueva).then(()=>render()).catch(()=>{});
 });
 
     function formatNumeros(str, r) {
@@ -680,6 +851,19 @@ verFecha.addEventListener('change', ()=>{
     function rowHtml(r, readOnly){
   const horaTxt=new Intl.DateTimeFormat('es-AR',{timeZone:tz,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(r.hora));
   const tipoTxt = formatNumeros(r.tipo, r);
+
+  // chip de estado (idéntico a Pagos: interactivo SOLO con control ON)
+  const ok = !!(r.status_ok);
+  const chipHtml = controlMode
+    ? `<div class="ctrl-chips" data-scope="premios" data-id="${r.id}" data-sid="${r.sid || ''}">
+         <button class="chip ${ok ? 'on' : ''}" data-k="ok" title="Verificado">✓</button>
+       </div>`
+    : (ok
+        ? `<div class="ctrl-chips" data-scope="premios" data-id="${r.id}">
+             <span class="chip on" title="Verificado">✓</span>
+           </div>`
+        : '<span class="muted">—</span>');
+
   return `
     <tr>
       <td>${horaTxt}</td>
@@ -688,6 +872,7 @@ verFecha.addEventListener('change', ()=>{
       <td>${r.cantidad ? 'X '+r.cantidad : ''}</td>
       <td>${r.cliente}</td>
       <td>${r.notas||''}</td>
+      <td>${chipHtml}</td>  <!-- 👈 NUEVA col 7 -->
       <td>${
         readOnly
           ? '<span class="muted">—</span>'
@@ -716,10 +901,24 @@ verFecha.addEventListener('change', ()=>{
   const badge = document.getElementById('user-badge');
   if (badge) badge.textContent = code; // 👉 muestra solo 2323/2334/etc.
 })();
+// === Notas: cargar/estado según la fecha y el modo control ===
+function loadNotas(){
+  const txt = loadText('notas', fechaListado) || '';
+  notasDia.value = txt;
+
+  // sin estados raros ni bloqueos
+  notasDia.classList.remove('dirty','saved');
+  notasDia.disabled = false;                  // ← nunca bloqueada
+
+  // sin mensajes debajo
+  const hint = document.querySelector('section.card.mini small.muted');
+  if (hint) hint.textContent = '';
+}
+
     function render(){
-      const readOnly=(fechaListado!==hoyKey()) && !controlMode;
-      const rows=load('premios', fechaListado);
-      totalReg.textContent=rows.length;
+  const readOnly = !canModify(fechaListado);
+  const rows = load('premios', fechaListado);
+  totalReg.textContent = rows.length;
 
       if(!document.body.classList.contains('two-col')){
         oneWrap.style.display='block'; twoWrap.style.display='none';
@@ -740,10 +939,18 @@ verFecha.addEventListener('change', ()=>{
       }
   window.render = render;
 
-      renderOficina(readOnly); renderAciertos(readOnly); renderPagos(readOnly); loadNotas();
-    }
+      renderOficina(readOnly);
+  renderAciertos(readOnly);
+  renderPagos(readOnly);
+  loadNotas();
+}
+
+// 🔔 avisar al adaptador que ya puede llamar a render()
+window.render = render;
+window.__app_ready = true;
 
     function openEdit(e){
+  if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para editar.'); return; }
       const id=Number(e.currentTarget.dataset.id);
       const arr=load('premios', fechaListado);
       const row=arr.find(x=>x.id===id); if(!row) return;
@@ -755,19 +962,23 @@ verFecha.addEventListener('change', ()=>{
       e_notas.value  = row.notas||'';
       dlg.showModal();
     }
-    document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)=>{
-  ev.preventDefault(); if(editingId==null){dlg.close();return;}
-  const arr=load('premios', fechaListado);
-  const i=arr.findIndex(x=>x.id===editingId); if(i<0){dlg.close();return;}
-  const parsed=parseTicketRedoblona(e_ticket.value);
-  arr[i].ticket = parsed.t1 || '';
-  arr[i].tipo   = parsed.red ? parsed.p1 : (e_tipo.value||'').trim();
-  arr[i].redoblona = parsed.red ? { ticket2: parsed.t2, tipo2: parsed.p2 } : null;
-  arr[i].cantidad = (e_cant.value||'').trim();
-  arr[i].cliente  = (e_cli.value||'').trim();
-  arr[i].notas    = (e_notas.value||'').trim();
+document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)=>{
+  ev.preventDefault();
+  if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para editar.'); dlg.close(); return; }
+  if (editingId == null) { dlg.close(); return; }
 
-  // 👇👇👇  AÑADIR ESTO: actualizar en Supabase si hay sid
+  const arr = load('premios', fechaListado);
+  const i = arr.findIndex(x => x.id === editingId);
+  if (i < 0) { dlg.close(); return; }
+
+  const parsed = parseTicketRedoblona(e_ticket.value);
+  arr[i].ticket    = parsed.t1 || '';
+  arr[i].tipo      = parsed.red ? parsed.p1 : (e_tipo.value||'').trim();
+  arr[i].redoblona = parsed.red ? { ticket2: parsed.t2, tipo2: parsed.p2 } : null;
+  arr[i].cantidad  = (e_cant.value||'').trim();
+  arr[i].cliente   = (e_cli.value||'').trim();
+  arr[i].notas     = (e_notas.value||'').trim();
+
   try {
     const sid = arr[i].sid;
     if (sid) {
@@ -783,13 +994,15 @@ verFecha.addEventListener('change', ()=>{
     console.error('[EDIT premios] cloud error', e);
     alert('No pude actualizar en la nube este premio.');
   }
-  // 👆👆👆
 
   save('premios', fechaListado, arr);
-  editingId=null; dlg.close(); render();
+  editingId = null;
+  dlg.close();
+  render();
 });
 
     async function delRow(e){
+  if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
   const id=Number(e.currentTarget.dataset.id);
   if(!confirm('¿Eliminar este registro?')) return;
 
@@ -821,11 +1034,42 @@ verFecha.addEventListener('change', ()=>{
 }
 
     /* Pasado a oficina */
-    ofiAdd.addEventListener('click',()=>{
-      const v=ofiMonto.value.replace(/\D+/g,''); if(!v) return;
-      const arr=load('ofi', fechaListado); arr.push({id:Date.now(),hora:new Date().toISOString(),monto:Number(v)});
-      save('ofi', fechaListado, arr); ofiMonto.value=''; renderOficina();
-    });
+   ofiAdd.addEventListener('click', ()=>{
+  const v = ofiMonto.value.replace(/\D+/g,''); if(!v) return;
+  const f = verFecha.value || hoyKey();
+
+  // local instantáneo
+  const tempId = Date.now();
+  const arr = load('ofi', f);
+  arr.push({ id: tempId, sid: null, hora: new Date().toISOString(), monto: Number(v) });
+  save('ofi', f, arr);
+  ofiMonto.value=''; renderOficina(false);
+
+  // nube en 2º plano (con user_id correcto)
+(async () => {
+  try {
+    const uid = (await sb.auth.getSession()).data.session.user.id;
+    const { data, error } = await sb
+      .from('ofi_movimientos')
+      .insert({ user_id: uid, fecha: f, monto: Number(v), eliminado: false })
+      .select('id,hora')
+      .single();
+
+    if (error) throw error;
+
+    const a2 = load('ofi', f);
+    const i  = a2.findIndex(x => x.id === tempId);
+    if (i >= 0) {
+      a2[i].sid  = data.id;
+      a2[i].hora = data.hora || a2[i].hora;
+      save('ofi', f, a2);
+      renderOficina(false);
+    }
+  } catch (e) {
+    console.error('[OFI insert] nube', e);
+  }
+})();
+});
     function renderOficina(readOnly){
   const arr = load('ofi', fechaListado);
   ofiBody.innerHTML = '';
@@ -836,15 +1080,16 @@ verFecha.addEventListener('change', ()=>{
     const h = new Intl.DateTimeFormat('es-AR',{timeZone:tz,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(r.hora));
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${h}</td>
-      <td>$${(r.monto||0).toLocaleString('es-AR')}</td>
-      <td><button class="btn ghost ofi-del" data-id="${r.id}" ${ readOnly ? 'disabled':''}>✕</button></td>`;
+  <td>${h}</td>
+  <td>$${(r.monto||0).toLocaleString('es-AR')}</td>
+  <td>${readOnly ? '<span class="muted">—</span>' : `<button class="btn ghost ofi-del" data-id="${r.id}">✕</button>`}</td>`;
     ofiBody.appendChild(tr);
   }
   ofiTotal.textContent = '$'+total.toLocaleString('es-AR');
 
   ofiBody.querySelectorAll('.ofi-del').forEach(b=>b.addEventListener('click', async (e)=>{
     const id = Number(e.currentTarget.dataset.id);
+    if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
     if (!confirm('¿Eliminar este movimiento?')) return;
 
     const arrAll = load('ofi', fechaListado);
@@ -872,17 +1117,39 @@ verFecha.addEventListener('change', ()=>{
 }
 
     /* Aciertos de oficina */
-    aoAdd.addEventListener('click', () => {
-      const ac = aoAcierto.value.trim();
-      const por = aoPor.value.replace(/\D+/g,'');
-      const n   = aoNombre.value.trim();
-      if(!ac || !n) return;
-      const arr = load('ao', fechaListado);
-      arr.push({ id: Date.now(), hora: new Date().toISOString(), acierto: ac, por: por, nombre: n });
-      save('ao', fechaListado, arr);
-      aoAcierto.value=''; aoPor.value=''; aoNombre.value='';
-      renderAciertos();
-    });
+    aoAdd.addEventListener('click', async ()=>{
+  const ac = aoAcierto.value.trim();
+  const por = aoPor.value.replace(/\D+/g,'');
+  const n   = aoNombre.value.trim();
+  if(!ac || !n) return;
+  const f = verFecha.value || hoyKey();
+
+  // 1) local inmediato (pending)
+  const tempId = Date.now();
+  const arr = load('ao', f);
+  arr.push({ id: tempId, sid: null, hora: new Date().toISOString(),
+             acierto: ac, por, nombre: n, pending: true });
+  save('ao', f, arr);
+  renderAciertos();
+
+  // 2) nube con un pequeño delay
+  setTimeout(async ()=>{
+    try{
+      const { data, error } = await sb.from('ao_aciertos').insert({
+        user_id: (await sb.auth.getSession()).data.session.user.id,
+        fecha: f, acierto: ac, por: por?Number(por):null, nombre: n, eliminado:false
+      }).select('id,hora').single();
+      if (error) throw error;
+      const a2 = load('ao', f);
+      const i  = a2.findIndex(x=>x.id===tempId);
+      if(i>=0){ a2[i].sid=data.id; a2[i].hora=data.hora||a2[i].hora; a2[i].pending=false; save('ao', f, a2); renderAciertos(); }
+    }catch(e){
+      markPending('ao', f, tempId); toast('AO no subió. Queda pendiente ⏳','err');
+    }
+  }, 400);
+
+  aoAcierto.value=''; aoPor.value=''; aoNombre.value='';
+});
 
     function renderAciertos(readOnly){
   const arr = load('ao', fechaListado);
@@ -897,16 +1164,17 @@ verFecha.addEventListener('change', ()=>{
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${h}</td>
-      <td>${acTxt}</td>
-      <td>${r.por ? 'x '+r.por : ''}</td>
-      <td>${r.nombre}</td>
-      <td><button class="btn ghost ao-del" data-id="${r.id}" ${ readOnly ? 'disabled':''}>✕</button></td>`;
+  <td>${h}</td>
+  <td>${acTxt}</td>
+  <td>${r.por ? 'x '+r.por : ''}</td>
+  <td>${r.nombre}</td>
+  <td>${readOnly ? '<span class="muted">—</span>' : `<button class="btn ghost ao-del" data-id="${r.id}">✕</button>`}</td>`;
     aoBody.appendChild(tr);
   }
 
   aoBody.querySelectorAll('.ao-del').forEach(b=>b.addEventListener('click', async (e)=>{
     const id = Number(e.currentTarget.dataset.id);
+    if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
     if (!confirm('¿Eliminar este acierto de oficina?')) return;
 
     const arrAll = load('ao', fechaListado);
@@ -933,15 +1201,38 @@ verFecha.addEventListener('change', ()=>{
 }
 
     /* Pagos + control */
-    pgAdd.addEventListener('click', ()=>{
-      const m = pgMonto.value.replace(/\D+/g,''); const c = pgCliente.value.trim(); const a = pgCuenta.value.trim();
-      if(!m || !c) return;
-      const arr = load('pg', fechaListado);
-      arr.push({ id:Date.now(), hora:new Date().toISOString(), monto:Number(m), cliente:c, cuenta:a, status:{ok:false,money:false,cross:false} });
-      save('pg', fechaListado, arr);
-      pgMonto.value=''; pgCliente.value=''; pgCuenta.value='';
-      renderPagos();
-    });
+    pgAdd.addEventListener('click', async ()=>{
+  const m = pgMonto.value.replace(/\D+/g,''); const c = pgCliente.value.trim(); const a = pgCuenta.value.trim();
+  if(!m || !c) return;
+  const f = verFecha.value || hoyKey();
+
+  // 1) local inmediato (pending)
+  const tempId = Date.now();
+  const arr = load('pg', f);
+  arr.push({ id: tempId, sid:null, hora:new Date().toISOString(),
+             monto:Number(m), cliente:c, cuenta:a||'', status:{ok:false,money:false,cross:false}, pending:true });
+  save('pg', f, arr);
+  renderPagos();
+
+  // 2) nube con pequeño delay
+  setTimeout(async ()=>{
+    try{
+      const { data, error } = await sb.from('pg_pagos').insert({
+        user_id:(await sb.auth.getSession()).data.session.user.id,
+        fecha:f, monto:Number(m), cliente:c, cuenta:a||null,
+        status_ok:false, status_money:false, status_cross:false, eliminado:false
+      }).select('id,hora').single();
+      if(error) throw error;
+      const a2 = load('pg', f);
+      const i  = a2.findIndex(x=>x.id===tempId);
+      if(i>=0){ a2[i].sid=data.id; a2[i].hora=data.hora||a2[i].hora; a2[i].pending=false; save('pg', f, a2); renderPagos(); }
+    }catch(e){
+      markPending('pg', f, tempId); toast('Pago no subió. Queda pendiente ⏳','err');
+    }
+  }, 400);
+
+  pgMonto.value=''; pgCliente.value=''; pgCuenta.value='';
+});
 
     function renderPagos(readOnly){
       const arr = load('pg', fechaListado);
@@ -964,40 +1255,58 @@ verFecha.addEventListener('change', ()=>{
 
         const tr=document.createElement('tr');
         // dentro de renderPagos()
-tr.innerHTML = `
-  <td>${h}</td>
-  <td>$${(r.monto||0).toLocaleString('es-AR')}</td>
-  <td>${r.cliente}</td>
-  <td>${r.cuenta||''}</td>
-  <td>${chips}</td>
-  <td>
-    <button class="btn ghost pg-del"
-            data-id="${r.id}"
-            data-sid="${r.sid || ''}"
-            ${ readOnly ? 'disabled':''}>✕</button>
-  </td>
-`;
+const tdHTML = readOnly
+    ? '<span class="muted">—</span>'
+    : `<button class="btn ghost pg-del" data-id="${r.id}" data-sid="${r.sid || ''}">✕</button>`;
+  tr.innerHTML = `
+    <td>${h}</td>
+    <td>$${(r.monto||0).toLocaleString('es-AR')}</td>
+    <td>${r.cliente}</td>
+    <td>${r.cuenta||''}</td>
+    <td>${chips}</td>
+    <td>${tdHTML}</td>
+  `;
         pgBody.appendChild(tr);
       }
 
       
     }
 
-    function loadNotas(){
-  notasDia.value = loadText('notas', fechaListado);
-  notasDia.disabled = false;            // 👈 siempre editable
-  notasDia.classList.remove('saved');
-}
+    notasSave.addEventListener('click', async ()=>{
+  const texto = notasDia.value || '';
+  try {
+    const { data:{ session } } = await sb.auth.getSession();
+    const uid = session.user.id;
+    const f   = fechaListado;
 
-notasSave.addEventListener('click', ()=>{
-  // guarda SIEMPRE en la fecha seleccionada
-  saveText('notas', fechaListado, notasDia.value);
-  window.cloud?.saveNotas?.(fechaListado, notasDia.value); // ⬅️ sube a la nube (si el adaptador expone este método)
-  notasDia.classList.remove('dirty');
-  notasDia.classList.add('saved');
+    const { error } = await sb.from('notas_dia').upsert({ user_id: uid, fecha: f, texto });
+    if (error) throw error;
+
+    saveText('notas', f, texto);
+    notasDia.classList.remove('dirty');
+    notasDia.classList.add('saved');
+  } catch(e) {
+    console.error('[NOTAS upsert] nube', e);
+    alert('No pude guardar las notas en la nube.');
+  }
 });
 
-    render();
+    /* 🔁 PULL INICIAL: si Control está OFF, primero bajo de nube y recién pinto */
+// ARRANQUE
+(async () => {
+  const controlOn = localStorage.getItem('control_activo') === '1';
+
+  // 👉 pintá YA con lo que haya local
+  window.__app_ready = true;
+  render();
+
+  // 👉 sincronizá en segundo plano (sin await)
+  try {
+    if (!controlOn) {
+      window.cloud?.pull?.(fechaListado).then(()=>render());
+    }
+  } catch {}
+})();
 // === Delegación global: eliminar de PAGOS con nube (robusto) ===
 document.addEventListener('click', async (ev) => {
   const btn = ev.target.closest('.pg-del');
@@ -1005,6 +1314,7 @@ document.addEventListener('click', async (ev) => {
 
   const id = Number(btn.dataset.id);
   const sidFromDom = btn.dataset.sid || '';
+  if (!canModify(fechaListado)) { alert('Este día ya está cerrado. Activá Control para eliminar.'); return; }
   if (!id || !confirm('¿Eliminar este pago?')) return;
 
   const arr = load('pg', fechaListado);
@@ -1134,6 +1444,156 @@ document.addEventListener('click', async (e)=>{
   renderPagos(false);
 });
 window.__app_ready = true;
+// === CTRL chip de PREMIOS (sólo ✓): delegación global e idéntico a Pagos ===
+document.addEventListener('click', async (e)=>{
+  const b = e.target.closest('.ctrl-chips .chip');
+  if (!b) return;
+
+  const wrap = b.closest('.ctrl-chips');
+  if (!wrap || wrap.dataset.scope !== 'premios') return;  // 👈 sólo premios
+  if (!controlMode) return;                               // interactivo solo con control ON
+
+  const id  = Number(wrap.dataset.id);
+  const sid = wrap.dataset.sid || '';
+  const arr = load('premios', fechaListado);
+  const i   = arr.findIndex(x=>x.id===id);
+  if (i < 0) return;
+
+  // 1) local
+  arr[i].status_ok = !arr[i].status_ok;
+  save('premios', fechaListado, arr);
+
+  // 2) nube (si tengo sid, actualizo directo; si no, aviso)
+  try{
+    if (sid){
+      const { error } = await sb.from('premios').update({ status_ok: arr[i].status_ok }).eq('id', sid);
+      if (error) throw error;
+    } else {
+      // si el insert aún no volvió con sid
+      // (no rompemos nada: solo UI local hasta próxima sync)
+      // Podés opcionalmente alertar leve o ignorar.
+    }
+  } catch(err){
+    console.error('[PREMIOS toggle] cloud error', err);
+    // revertir local si falló
+    arr[i].status_ok = !arr[i].status_ok;
+    save('premios', fechaListado, arr);
+    alert('Error actualizando estado del premio en la nube.');
+  }
+
+  render();
+});
+// ==== Switch Pantallas (1 = Premios / 2 = Juegos) ====
+const btnP1 = document.getElementById('btn-pantalla1');
+const btnP2 = document.getElementById('btn-pantalla2');
+const scr1  = document.getElementById('screen-premios');
+const scr2  = document.getElementById('screen-juegos');
+// const btnTwo = document.getElementById('btn-dos-col'); // ❌ BORRAR esta línea
+
+function showPremios(){
+  scr1.classList.remove('hide');
+  scr2.classList.add('hide');
+  btnP1?.classList.remove('ghost');   // activo (amarillo)
+  btnP2?.classList.add('ghost');      // inactivo (gris)
+  btnTwo?.removeAttribute('disabled'); // 2 columnas habilitado acá
+}
+
+function showJuegos(){
+  scr1.classList.add('hide');
+  scr2.classList.remove('hide');
+  btnP1?.classList.add('ghost');
+  btnP2?.classList.remove('ghost');
+  btnTwo?.setAttribute('disabled','');
+
+  // 👇 inicializa/recarga el panel de juegos
+  window.juegos?.init?.();
+}
+
+// Estado inicial: pantalla 1 visible
+showPremios();
+// ... después de loguear / setear badge / mostrar pantalla 1
+window.juegos?.preload?.();   // ← precarga en 2º plano la solapa 2
+// Clicks
+btnP1?.addEventListener('click', showPremios);
+btnP2?.addEventListener('click', showJuegos);
+
+/* === Calculadora de cliente (con historial detallado) === */
+(function(){
+  const $ = (id)=>document.getElementById(id);
+
+  // guardamos listas de importes para historial detallado
+  const L = { jugo:[], gano:[], pago:[], favor:[], debia:[] };
+
+  const fmt = (n)=> n.toLocaleString('es-AR');
+  const sign = (n)=> (n>=0?'+':'-');
+
+  function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
+
+  function parseMontos(raw){
+    return String(raw||'')
+      .split(/[\s,+;]+/)
+      .map(x => Number(String(x).replace(/\D+/g,'')))
+      .filter(n => Number.isFinite(n) && n>0);
+  }
+
+  function paintSaldo(valor){
+    const s = $('cb-saldo');
+    const pos = valor >= 0;
+    s.textContent = `${sign(valor)} $${fmt(Math.abs(valor))}`;
+    s.style.background = pos ? '#153615' : '#3a1616';
+    s.style.border = `1px solid ${pos ? '#2f6a2f' : '#6a2f2f'}`;
+    s.style.color = '#fff';
+  }
+
+  function renderHist(id, arr){
+    const el = $(id);
+    if(!arr.length){ el.textContent = '—'; return; }
+    // Detallado: $1.000 + $3.000 + $1.000
+    el.textContent = arr.map(n => `$${fmt(n)}`).join(' + ');
+  }
+
+  function renderAll(){
+    const saldo = (sum(L.gano) + sum(L.pago) + sum(L.favor)) - (sum(L.jugo) + sum(L.debia));
+    paintSaldo(saldo);
+
+    renderHist('h-jugo',  L.jugo);
+    renderHist('h-gano',  L.gano);
+    renderHist('h-pago',  L.pago);
+    renderHist('h-favor', L.favor);
+    renderHist('h-debia', L.debia);
+  }
+
+  function pushFromField(key, inputId){
+    const nums = parseMontos($(inputId).value);
+    if(!nums.length) return;
+    L[key].push(...nums);          // agregamos cada importe por separado (historial detallado)
+    $(inputId).value = '';
+    renderAll();
+  }
+
+  // Alta por Enter (rápido)
+  [['jugo','cb-jugo'],['gano','cb-gano'],['pago','cb-pago'],['favor','cb-favor'],['debia','cb-debia']]
+    .forEach(([k,id])=>{
+      $(id).addEventListener('keydown',(e)=>{
+        if(e.key==='Enter'){ e.preventDefault(); pushFromField(k,id); }
+      });
+    });
+
+  // Limpiar todo
+  $('cb-clear').addEventListener('click', ()=>{
+    Object.keys(L).forEach(k => L[k] = []);
+    renderAll();
+  });
+
+  // Copiar solo el saldo con signo
+  $('cb-copy').addEventListener('click', ()=>{
+    const txt = $('cb-saldo').textContent.trim(); // p.ej. "+ $12.345"
+    navigator.clipboard?.writeText(txt);
+  });
+
+  // Arranque
+  renderAll();
+})();
   </script>
 </body>
 </html>

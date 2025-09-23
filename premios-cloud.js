@@ -13,6 +13,12 @@ const $$ = (q,root=document)=>Array.from(root.querySelectorAll(q));
 
 function today(){ return fmtDate(new Date()); }
 function selectedDate(){
+  // 👇 si hay lock, usamos SIEMPRE la fecha bloqueada
+  const on = localStorage.getItem('control_activo') === '1';
+  const fLock = localStorage.getItem('control_fecha');
+  if (on && fLock && /^\d{4}-\d{2}-\d{2}$/.test(fLock)) return fLock;
+
+  // sino, usamos el input si existe; si aún no está en el DOM, caemos a hoy
   const el = document.getElementById('ver-fecha');
   const v  = el?.value;
   return (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) ? v : today();
@@ -32,73 +38,102 @@ function selectedDate(){
   await initialPull(USER_ID, selectedDate());
   try{ window.dispatchEvent(new StorageEvent('storage',{key:'__sync__', newValue:String(Date.now())})); }catch{}
 
-  // ENGANCHES (solo INSERT; delete/toggle lo hace el index por sid)
-  hookPremios(USER_ID);
-  hookOficina(USER_ID);
-  hookAciertosOfi(USER_ID);
-  hookPagos(USER_ID);
+    // index.html ya inserta/actualiza: evitamos duplicados.
+  // hookPremios(USER_ID);
+  // hookOficina(USER_ID);
+  // hookAciertosOfi(USER_ID);
+  // hookPagos(USER_ID);
+  // hookNotas(USER_ID);
   hookControl(USER_ID);
-  
-    // Helpers globales para que el index use sid exacto y para pedir otro día
+
+  // Helpers globales para que el index use sid exacto y para pedir otro día
   window.cloud = {
-    async premiosUpdateBySid(sid, fields){
-      return supabase.from('premios').update({
-        ticket:   fields.ticket   ?? undefined,
-        tipo:     fields.tipo     ?? undefined,
-        cantidad: fields.cantidad ?? null,
-        cliente:  fields.cliente  ?? undefined,
-        notas:    fields.notas    ?? undefined
-      }).eq('id', sid);
-    },
+  async premiosUpdateBySid(sid, fields){
+    return supabase.from('premios').update(fields).eq('id', sid);
+  },
+  async premiosDeleteBySid(sid){
+    return supabase.from('premios').update({ eliminado:true }).eq('id', sid);
+  },
 
-    async premiosDeleteBySid(sid){
-      return supabase.from('premios').update({ eliminado:true }).eq('id', sid);
-    },
+  async pagosToggleBySid(sid, toggles){
+    // toggles: { status_ok?, status_money?, status_cross? }
+    return supabase.from('pg_pagos').update(toggles).eq('id', sid);
+  },
+  async pagosDeleteBySid(sid){
+    return supabase.from('pg_pagos').update({ eliminado:true }).eq('id', sid);
+  },
 
-    async pagosToggleBySid(sid, toggles){
-      return supabase.from('pg_pagos').update(toggles).eq('id', sid);
-    },
+  async ofiDeleteBySid(sid){
+    return supabase.from('ofi_movimientos').update({ eliminado:true }).eq('id', sid);
+  },
+  async aoDeleteBySid(sid){
+    return supabase.from('ao_aciertos').update({ eliminado:true }).eq('id', sid);
+  },
 
-    async pagosDeleteBySid(sid){
-      return supabase.from('pg_pagos').update({ eliminado:true }).eq('id', sid);
-    },
+  async pull(fecha){
+    const USER_ID = localStorage.getItem('sb_user_id');
+    await initialPull(USER_ID, fecha || selectedDate());
+    try { window.dispatchEvent(new StorageEvent('storage',{key:'__sync__', newValue:String(Date.now())})); } catch {}
+  },
 
-    async ofiDeleteBySid(sid){
-      return supabase.from('ofi_movimientos').update({ eliminado:true }).eq('id', sid);
-    },
+    // ====== MODO CONTROL (candado en la nube) ======
+  async controlSync(fecha){
+    const USER_ID = localStorage.getItem('sb_user_id');
+    const f = fecha || selectedDate();
 
-    async aoDeleteBySid(sid){
-      return supabase.from('ao_aciertos').update({ eliminado:true }).eq('id', sid);
-    },
+    // mirá SOLO esa fecha (no “cualquiera activa”)
+    const { data, error } = await supabase.from('control_estado')
+      .select('fecha,activo,updated_at')
+      .eq('user_id', USER_ID)
+      .eq('fecha', f)
+      .maybeSingle();
 
-    // 👇👇👇 NUEVO: usado por index.html → window.cloud.saveNotas(fecha, texto)
-    async saveNotas(fecha, texto){
-      const userId  = localStorage.getItem('sb_user_id');
-      const row = {
-        user_id: userId,
-        fecha,
-        texto,
-        updated_at: new Date().toISOString()
-      };
-      const { error } = await supabase.from('notas_dia').upsert(row);
-      if (error) throw error;
-
-      // espejo local para que se vea al instante
-      const uidLocal = localStorage.getItem('usuario_id');
-      localStorage.setItem(`notas:${uidLocal}:${fecha}`, texto);
-
-      // avisar a otras pestañas / vistas
-      try {
-        window.dispatchEvent(new StorageEvent('storage', { key:'__sync__', newValue: String(Date.now()) }));
-      } catch {}
-    },
-
-    async pull(fecha){
-      await initialPull(USER_ID, fecha || selectedDate());
-      try{ window.dispatchEvent(new StorageEvent('storage',{key:'__sync__', newValue:String(Date.now())})); }catch{}
+    if (error && error.code !== 'PGRST116') {
+      console.error('[CONTROL sync]', error);
+      return {activo:false, fecha:f};
     }
-  };
 
+    const activo = !!data?.activo;
+
+    // reflejo local solo para ESA fecha
+    localStorage.setItem('control_activo', activo ? '1' : '0');
+    if (activo) localStorage.setItem('control_fecha', f);
+    else        localStorage.removeItem('control_fecha');
+
+    try { window.dispatchEvent(new StorageEvent('storage',{key:'__control__', newValue:String(Date.now())})); } catch {}
+
+    return {activo, fecha:f};
+  },
+
+  async controlOpen(fecha){
+    const USER_ID = localStorage.getItem('sb_user_id');
+    const { error } = await supabase.from('control_estado').upsert({
+      user_id: USER_ID, fecha, activo: true, control_on: true, updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+
+    localStorage.setItem('control_activo','1');
+    localStorage.setItem('control_fecha', fecha);
+    try { window.dispatchEvent(new StorageEvent('storage',{key:'__control__', newValue:String(Date.now())})); } catch {}
+    return true;
+  },
+
+  async controlClose(fecha){
+    const USER_ID = localStorage.getItem('sb_user_id');
+    const f = fecha || localStorage.getItem('control_fecha') || selectedDate();
+    const { error } = await supabase.from('control_estado').upsert({
+      user_id: USER_ID, fecha: f, activo: false, control_on: false, updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+
+    localStorage.setItem('control_activo','0');
+    localStorage.removeItem('control_fecha');
+    try { window.dispatchEvent(new StorageEvent('storage',{key:'__control__', newValue:String(Date.now())})); } catch {}
+    return true;
+  }
+};
+
+  await window.cloud.controlSync(selectedDate());
   console.log('[CLOUD] listo (adaptador)');
 })();
 
@@ -126,8 +161,8 @@ async function initialPull(USER_ID, fecha) {
     ctrlRes
   ] = await Promise.all([
     supabase.from('premios')
-      .select('id,hora,ticket,tipo,cantidad,cliente,notas')
-      .eq('user_id', USER_ID).eq('fecha', fecha).eq('eliminado', false).order('hora',{ascending:true}),
+  .select('id,hora,ticket,tipo,cantidad,cliente,notas,status_ok')
+  .eq('user_id', USER_ID).eq('fecha', fecha).eq('eliminado', false).order('hora',{ascending:true}),
     supabase.from('ofi_movimientos')
       .select('id,hora,monto')
       .eq('user_id', USER_ID).eq('fecha', fecha).eq('eliminado', false).order('hora',{ascending:true}),
@@ -146,16 +181,17 @@ async function initialPull(USER_ID, fecha) {
   // PREMIOS
   if (premiosRes.error) console.error('[PULL premios] error', premiosRes.error);
   const premiosRows = (premiosRes.data||[]).map(r => ({
-    id: Date.parse(r.hora),
-    sid: r.id,
-    hora: r.hora,
-    ticket: r.ticket,
-    tipo: r.tipo,
-    cantidad: r.cantidad ?? '',
-    cliente: r.cliente,
-    notas: r.notas ?? '',
-    redoblona: null
-  }));
+  id: Date.parse(r.hora),
+  sid: r.id,
+  hora: r.hora,
+  ticket: r.ticket,
+  tipo: r.tipo,
+  cantidad: r.cantidad ?? '',
+  cliente: r.cliente,
+  notas: r.notas ?? '',
+  redoblona: null,
+  status_ok: !!r.status_ok       // 👈 agregar esta línea
+}));
   localStorage.setItem(K('premios'), JSON.stringify(premiosRows));
 
   // OFICINA
@@ -200,11 +236,17 @@ async function initialPull(USER_ID, fecha) {
   }
   localStorage.setItem(K('notas'), notasRes.data?.texto ?? '');
 
-  // CONTROL
-  if (ctrlRes.error && ctrlRes.error.code !== 'PGRST116') {
-    console.error('[PULL control] error', ctrlRes.error);
-  }
-  localStorage.setItem('control_activo', (ctrlRes.data?.activo ? '1':'0'));
+ // CONTROL
+if (ctrlRes.error && ctrlRes.error.code !== 'PGRST116') {
+  console.error('[PULL control] error', ctrlRes.error);
+}
+const activo = !!ctrlRes.data?.activo;
+localStorage.setItem('control_activo', activo ? '1' : '0');
+if (activo) {
+  localStorage.setItem('control_fecha', fecha);
+} else {
+  localStorage.removeItem('control_fecha');
+}
 
   // repintar SOLO cuando el index avise que está listo
   (function waitForAppReady(){
@@ -348,24 +390,61 @@ function hookPagos(USER_ID){
   }, { capture:true });
 }
 
+/* ===== NOTAS ===== */
+function hookNotas(USER_ID){
+  const btn = document.getElementById('notas-save');
+  const ta  = document.getElementById('notas-dia');
+  if(!btn || !ta) return;
+
+  function debounce(fn, ms){
+    let t; return (...args)=>{ clearTimeout(t); t = setTimeout(()=>fn(...args), ms); };
+  }
+
+  async function upsertNotas(){
+    try {
+      const fecha = selectedDate();
+      const row = { user_id: USER_ID, fecha, texto: ta.value, updated_at: new Date().toISOString() };
+      const { error } = await supabase.from('notas_dia').upsert(row);
+      if (error) throw error;
+    } catch (err) {
+      console.error('[NOTAS upsert] error', err);
+      alert('Error guardando notas en la nube.');
+    }
+  }
+
+  // Guardado manual
+  btn.addEventListener('click', upsertNotas);
+
+  // Autosave con debounce
+  const debounced = debounce(upsertNotas, 900);
+  ta.addEventListener('input', debounced);
+
+  // Flush al salir (fire & forget)
+  window.addEventListener('beforeunload', ()=> upsertNotas());
+}
 
 /* ===== CONTROL GLOBAL (pull periódico para multi-dispositivo) ===== */
 function hookControl(USER_ID){
   setInterval(async ()=>{
     try{
+      const f = selectedDate();
       const { data, error } = await supabase.from('control_estado')
         .select('activo, updated_at')
         .eq('user_id', USER_ID)
-        .eq('fecha', selectedDate())
+        .eq('fecha', f)
         .maybeSingle();
 
-      if(error && error.code!=='PGRST116') throw error;
+      if (error && error.code !== 'PGRST116') throw error;
 
       const serverOn = !!data?.activo;
       const localOn  = localStorage.getItem('control_activo') === '1';
+
       if (serverOn !== localOn){
         localStorage.setItem('control_activo', serverOn ? '1' : '0');
-        try{ window.dispatchEvent(new StorageEvent('storage',{key:'__control__', newValue:String(Date.now())})); }catch{}
+        if (serverOn) localStorage.setItem('control_fecha', f);
+        else          localStorage.removeItem('control_fecha');
+
+        try { window.dispatchEvent(new StorageEvent('storage',{key:'__control__', newValue:String(Date.now())})); } catch {}
       }
     }catch(e){
       console.error('[CONTROL poll] error', e);
