@@ -161,16 +161,16 @@ async function initialPull(USER_ID, fecha) {
     ctrlRes
   ] = await Promise.all([
     supabase.from('premios')
-  .select('id,hora,ticket,tipo,cantidad,cliente,notas,status_ok')
+  .select('id,hora,ticket,tipo,cantidad,cliente,notas,status_ok,cid')
   .eq('user_id', USER_ID).eq('fecha', fecha).eq('eliminado', false).order('hora',{ascending:true}),
     supabase.from('ofi_movimientos')
-      .select('id,hora,monto')
+      .select('id,hora,monto,cid')
       .eq('user_id', USER_ID).eq('fecha', fecha).eq('eliminado', false).order('hora',{ascending:true}),
     supabase.from('ao_aciertos')
-      .select('id,hora,acierto,por,nombre')
+      .select('id,hora,acierto,por,nombre,cid')
       .eq('user_id', USER_ID).eq('fecha', fecha).eq('eliminado', false).order('hora',{ascending:true}),
     supabase.from('pg_pagos')
-      .select('id,hora,monto,cliente,cuenta,status_ok,status_money,status_cross')
+      .select('id,hora,monto,cliente,cuenta,status_ok,status_money,status_cross,cid')
       .eq('user_id', USER_ID).eq('fecha', fecha).eq('eliminado', false).order('hora',{ascending:true}),
     supabase.from('notas_dia')
       .select('texto').eq('user_id', USER_ID).eq('fecha', fecha).maybeSingle(),
@@ -183,6 +183,7 @@ async function initialPull(USER_ID, fecha) {
   const premiosRows = (premiosRes.data||[]).map(r => ({
   id: Date.parse(r.hora),
   sid: r.id,
+  cid: r.cid,          // ← agregar
   hora: r.hora,
   ticket: r.ticket,
   tipo: r.tipo,
@@ -190,43 +191,46 @@ async function initialPull(USER_ID, fecha) {
   cliente: r.cliente,
   notas: r.notas ?? '',
   redoblona: null,
-  status_ok: !!r.status_ok       // 👈 agregar esta línea
+  status_ok: !!r.status_ok
 }));
   localStorage.setItem(K('premios'), JSON.stringify(premiosRows));
 
   // OFICINA
   if (ofiRes.error) console.error('[PULL ofi] error', ofiRes.error);
   const ofiRows = (ofiRes.data||[]).map(r => ({
-    id: Date.parse(r.hora),
-    sid: r.id,
-    hora: r.hora,
-    monto: r.monto
-  }));
+  id: Date.parse(r.hora),
+  sid: r.id,
+  cid: r.cid,          // ← agregar
+  hora: r.hora,
+  monto: r.monto
+}));
   localStorage.setItem(K('ofi'), JSON.stringify(ofiRows));
 
   // ACIERTOS OFI
   if (aoRes.error) console.error('[PULL ao] error', aoRes.error);
   const aoRows = (aoRes.data||[]).map(r => ({
-    id: Date.parse(r.hora),
-    sid: r.id,
-    hora: r.hora,
-    acierto: r.acierto,
-    por: r.por ?? '',
-    nombre: r.nombre
-  }));
+  id: Date.parse(r.hora),
+  sid: r.id,
+  cid: r.cid,          // ← agregar
+  hora: r.hora,
+  acierto: r.acierto,
+  por: r.por ?? '',
+  nombre: r.nombre
+}));
   localStorage.setItem(K('ao'), JSON.stringify(aoRows));
 
   // PAGOS
   if (pgRes.error) console.error('[PULL pg] error', pgRes.error);
   const pgRows = (pgRes.data||[]).map(r => ({
-    id: Date.parse(r.hora),
-    sid: r.id,
-    hora: r.hora,
-    monto: r.monto,
-    cliente: r.cliente,
-    cuenta: r.cuenta ?? '',
-    status: { ok: !!r.status_ok, money: !!r.status_money, cross: !!r.status_cross }
-  }));
+  id: Date.parse(r.hora),
+  sid: r.id,
+  cid: r.cid,          // ← agregar
+  hora: r.hora,
+  monto: r.monto,
+  cliente: r.cliente,
+  cuenta: r.cuenta ?? '',
+  status: { ok: !!r.status_ok, money: !!r.status_money, cross: !!r.status_cross }
+}));
   localStorage.setItem(K('pg'), JSON.stringify(pgRows));
   console.log('[PULL pagos]', pgRows.length);
 

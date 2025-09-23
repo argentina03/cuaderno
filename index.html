@@ -557,6 +557,19 @@ body:not(.theme-light) #notas-dia.saved{
   </dialog>
 
   <script>
+    // ===== Anti-dobles / Idempotencia simple =====
+const _inFlight = { premios:false, ofi:false, ao:false, pg:false };
+const _recent   = new Map(); // clave -> { h, t }
+
+function _hashLike(s){ return String(s).trim(); }
+function _isRecentDuplicate(key, payloadString, ms=300){   // antes 2500
+  const h = String(payloadString).trim();
+  const now = Date.now();
+  const prev = _recent.get(key);
+  if (prev && prev.h === h && (now - prev.t) < ms) return true;
+  _recent.set(key, { h, t: now });
+  return false;
+}
     const tz = 'America/Argentina/Buenos_Aires';
     const $=q=>document.querySelector(q);
     const reloj=$('#reloj'); setInterval(()=>{reloj.textContent=new Intl.DateTimeFormat('es-AR',{timeZone:tz,dateStyle:'medium',timeStyle:'medium'}).format(new Date())},1000);
@@ -763,59 +776,66 @@ window.addEventListener('storage', (ev) => {
 
   const f = (verFecha.value && /^\d{4}-\d{2}-\d{2}$/.test(verFecha.value)) ? verFecha.value : hoyKey();
   const parsed = parseTicketRedoblona(ticket.value);
+
+  const { data:{ session } } = await sb.auth.getSession();
+  const uid = session.user.id;
+
   const payload = {
-  user_id: (await sb.auth.getSession()).data.session.user.id,
-  fecha: f,
-  ticket:  parsed.t1 || '',
-  tipo:    parsed.red ? parsed.p1 : (tipo.value||'').trim(),
-  cantidad: (cantidad.value||'').trim() ? Number(cantidad.value) : null,
-  cliente: (cliente.value||'').trim(),
-  notas:   (notas.value||'').trim(),
-  eliminado: false,
-  status_ok: false   // 👈 AGREGAR
-};
+    user_id: uid,
+    fecha: f,
+    ticket:  parsed.t1 || '',
+    tipo:    parsed.red ? parsed.p1 : (tipo.value||'').trim(),
+    cantidad: (cantidad.value||'').trim() ? Number(cantidad.value) : null,
+    cliente: (cliente.value||'').trim(),
+    notas:   (notas.value||'').trim(),
+    eliminado: false,
+    status_ok: false,
+    cid: crypto.randomUUID()                 // 👈 NUEVO
+  };
 
   if(!payload.ticket || !payload.tipo || !payload.cliente){
-    alert('Ticket, Números y Cliente son obligatorios'); return;
+    alert('Ticket, Números y Cliente son obligatorios');
+    return;
   }
 
-  // === UI optimista: primero local, después nube ===
+  // antirebote suave (no bloqueo el form si es distinto)
+  const _premiosKey = `${payload.ticket}|${payload.tipo}|${cantidad.value}|${payload.cliente}|${f}`;
+  if (_isRecentDuplicate('premios', _premiosKey)) return;
+
+  // UI instantánea (local-first)
   const tempId = Date.now();
   const arr = load('premios', f);
   arr.push({
-  id: tempId,
-  sid: null,
-  hora: new Date().toISOString(),
-  ticket: payload.ticket,
-  tipo: payload.tipo,
-  cantidad: payload.cantidad,
-  cliente: payload.cliente,
-  notas: payload.notas,
-  redoblona: parsed.red ? { ticket2: parsed.t2, tipo2: parsed.p2 } : null,
-  status_ok: false    // 👈 AGREGAR
-});
+    id: tempId,
+    cid: payload.cid,             // 👈 guardo cid también local
+    sid: null,
+    hora: new Date().toISOString(),
+    ticket: payload.ticket,
+    tipo: payload.tipo,
+    cantidad: payload.cantidad,
+    cliente: payload.cliente,
+    notas: payload.notas,
+    redoblona: parsed.red ? { ticket2: parsed.t2, tipo2: parsed.p2 } : null,
+    status_ok: false
+  });
   save('premios', f, arr);
   if (fechaListado === f) render();
 
-  // nube en 2º plano (pega sid/hora cuando vuelve)
-  sb.from('premios').insert(payload).select('id,hora').single()
-    .then(({ data, error }) => {
-      if (error) throw error;
-      const a2 = load('premios', f);
-      const i  = a2.findIndex(x => x.id === tempId);
-      if (i >= 0) {
-        a2[i].sid  = data.id;
-        a2[i].hora = data.hora || a2[i].hora;
-        save('premios', f, a2);
-        if (fechaListado === f) render();
-      }
+  // Nube en segundo plano (sin .select() para menos latencia)
+  sb.from('premios').insert(payload, { returning: 'minimal' })
+    .then(() => {
+      // Podés hacer un pull más tarde si necesitás el sid.
+      // window.cloud?.pull?.(f).then(()=>render()).catch(()=>{});
     })
     .catch(err => {
-      console.error('[PREMIOS insert] nube', err);
-      // si querés, marcá el registro con un flag “pendiente”
+      // 23505 = unique violation (duplicado por mismo cid) → safe to ignore
+      if (String(err?.code) !== '23505') {
+        console.error('[PREMIOS insert] nube', err);
+        // opcional: marcar pending visual
+      }
     });
 
-  // limpiar inputs y foco
+  // limpiar inputs y foco (sin esperar nube)
   if(!keep.checked){ ticket.value=''; cantidad.value=''; cliente.value=''; }
   tipo.value=''; notas.value='';
   refocusAfterSave();
@@ -1035,40 +1055,28 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
 
     /* Pasado a oficina */
    ofiAdd.addEventListener('click', ()=>{
-  const v = ofiMonto.value.replace(/\D+/g,''); if(!v) return;
+  const v = ofiMonto.value.replace(/\D+/g,'');
+  if(!v){ ofiMonto.focus(); return; }
+
   const f = verFecha.value || hoyKey();
 
-  // local instantáneo
   const tempId = Date.now();
+  const cid = crypto.randomUUID();                // 👈 NUEVO
   const arr = load('ofi', f);
-  arr.push({ id: tempId, sid: null, hora: new Date().toISOString(), monto: Number(v) });
+  arr.push({ id: tempId, cid, sid: null, hora: new Date().toISOString(), monto: Number(v) });
   save('ofi', f, arr);
   ofiMonto.value=''; renderOficina(false);
 
-  // nube en 2º plano (con user_id correcto)
-(async () => {
-  try {
-    const uid = (await sb.auth.getSession()).data.session.user.id;
-    const { data, error } = await sb
-      .from('ofi_movimientos')
-      .insert({ user_id: uid, fecha: f, monto: Number(v), eliminado: false })
-      .select('id,hora')
-      .single();
+  (async () => {
+    try {
+      const uid = (await sb.auth.getSession()).data.session.user.id;
+      await sb.from('ofi_movimientos')
+        .insert({ user_id: uid, fecha: f, monto: Number(v), eliminado: false, cid }, { returning:'minimal' }); // 👈 NUEVO
 
-    if (error) throw error;
-
-    const a2 = load('ofi', f);
-    const i  = a2.findIndex(x => x.id === tempId);
-    if (i >= 0) {
-      a2[i].sid  = data.id;
-      a2[i].hora = data.hora || a2[i].hora;
-      save('ofi', f, a2);
-      renderOficina(false);
+    } catch (e) {
+      if (String(e?.code) !== '23505') console.error('[OFI insert] nube', e); // duplicado → ignorable
     }
-  } catch (e) {
-    console.error('[OFI insert] nube', e);
-  }
-})();
+  })();
 });
     function renderOficina(readOnly){
   const arr = load('ofi', fechaListado);
@@ -1121,33 +1129,36 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
   const ac = aoAcierto.value.trim();
   const por = aoPor.value.replace(/\D+/g,'');
   const n   = aoNombre.value.trim();
-  if(!ac || !n) return;
-  const f = verFecha.value || hoyKey();
+  if(!ac || !n){ aoAcierto.focus(); return; }
 
-  // 1) local inmediato (pending)
+  const f = verFecha.value || hoyKey();
+  const cid = crypto.randomUUID();                 // 👈 NUEVO
+
   const tempId = Date.now();
   const arr = load('ao', f);
-  arr.push({ id: tempId, sid: null, hora: new Date().toISOString(),
+  arr.push({ id: tempId, cid, sid: null, hora: new Date().toISOString(),
              acierto: ac, por, nombre: n, pending: true });
   save('ao', f, arr);
   renderAciertos();
 
-  // 2) nube con un pequeño delay
   setTimeout(async ()=>{
     try{
-      const { data, error } = await sb.from('ao_aciertos').insert({
-        user_id: (await sb.auth.getSession()).data.session.user.id,
-        fecha: f, acierto: ac, por: por?Number(por):null, nombre: n, eliminado:false
-      }).select('id,hora').single();
-      if (error) throw error;
-      const a2 = load('ao', f);
-      const i  = a2.findIndex(x=>x.id===tempId);
-      if(i>=0){ a2[i].sid=data.id; a2[i].hora=data.hora||a2[i].hora; a2[i].pending=false; save('ao', f, a2); renderAciertos(); }
-    }catch(e){
-      markPending('ao', f, tempId); toast('AO no subió. Queda pendiente ⏳','err');
-    }
-  }, 400);
+      const uid = (await sb.auth.getSession()).data.session.user.id;
+      await sb.from('ao_aciertos').insert({
+        user_id: uid, fecha: f, acierto: ac, por: por?Number(por):null, nombre: n,
+        eliminado:false, cid                                  // 👈 NUEVO
+      }, { returning:'minimal' });
 
+      // opcional: sacar "pending" con un pull posterior
+      // window.cloud?.pull?.(f).then(()=>renderAciertos()).catch(()=>{})
+
+    }catch(e){
+      if (String(e?.code) !== '23505') {
+        console.error('[AO insert] nube', e);
+        // opcional: marcar pending
+      }
+    }
+  }, 200);
   aoAcierto.value=''; aoPor.value=''; aoNombre.value='';
 });
 
@@ -1202,34 +1213,41 @@ document.getElementById('btn-guardar-edit').addEventListener('click', async (ev)
 
     /* Pagos + control */
     pgAdd.addEventListener('click', async ()=>{
-  const m = pgMonto.value.replace(/\D+/g,''); const c = pgCliente.value.trim(); const a = pgCuenta.value.trim();
-  if(!m || !c) return;
-  const f = verFecha.value || hoyKey();
+  const m = pgMonto.value.replace(/\D+/g,'');
+  const c = pgCliente.value.trim();
+  const a = pgCuenta.value.trim();
+  if(!m || !c){ pgMonto.focus(); return; }
 
-  // 1) local inmediato (pending)
+  const f = verFecha.value || hoyKey();
+  const cid = crypto.randomUUID();                 // 👈 NUEVO
+
   const tempId = Date.now();
   const arr = load('pg', f);
-  arr.push({ id: tempId, sid:null, hora:new Date().toISOString(),
-             monto:Number(m), cliente:c, cuenta:a||'', status:{ok:false,money:false,cross:false}, pending:true });
+  arr.push({ id: tempId, cid, sid:null, hora:new Date().toISOString(),
+             monto:Number(m), cliente:c, cuenta:a||'',
+             status:{ok:false,money:false,cross:false}, pending:true });
   save('pg', f, arr);
   renderPagos();
 
-  // 2) nube con pequeño delay
   setTimeout(async ()=>{
     try{
-      const { data, error } = await sb.from('pg_pagos').insert({
-        user_id:(await sb.auth.getSession()).data.session.user.id,
-        fecha:f, monto:Number(m), cliente:c, cuenta:a||null,
-        status_ok:false, status_money:false, status_cross:false, eliminado:false
-      }).select('id,hora').single();
-      if(error) throw error;
-      const a2 = load('pg', f);
-      const i  = a2.findIndex(x=>x.id===tempId);
-      if(i>=0){ a2[i].sid=data.id; a2[i].hora=data.hora||a2[i].hora; a2[i].pending=false; save('pg', f, a2); renderPagos(); }
+      const uid = (await sb.auth.getSession()).data.session.user.id;
+      await sb.from('pg_pagos').insert({
+        user_id: uid, fecha:f, monto:Number(m), cliente:c, cuenta:a||null,
+        status_ok:false, status_money:false, status_cross:false,
+        eliminado:false, cid                                // 👈 NUEVO
+      }, { returning:'minimal' });
+
+      // opcional: luego hacé pull si querés `sid`
+      // window.cloud?.pull?.(f).then(()=>renderPagos()).catch(()=>{})
+
     }catch(e){
-      markPending('pg', f, tempId); toast('Pago no subió. Queda pendiente ⏳','err');
+      if (String(e?.code) !== '23505') {
+        console.error('[PG insert] nube', e);
+        // opcional: marcar pending
+      }
     }
-  }, 400);
+  }, 200);
 
   pgMonto.value=''; pgCliente.value=''; pgCuenta.value='';
 });
