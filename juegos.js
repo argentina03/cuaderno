@@ -13,7 +13,7 @@ const sbClient = (SUPABASE_URL && SUPABASE_ANON_KEY)
   : null;
 
 // Pasadores habilitados
-const PASADORES_VALIDOS = new Set([2323, 2329, 2334, 2312, 2317, 2340]);
+const PASADORES_VALIDOS = new Set([2323, 2329, 2334, 2312, 2317, 2340, 1027]);
 
 // Juegos soportados
 const JUEGOS = [
@@ -66,7 +66,7 @@ function inferirJuego(reg){
 }
 
 // Extractor de PASADOR (2323, 2329, etc.) desde columnas texto
-const RX_PAS = /\b(2323|2329|2334|2312|2317|2340)\b/;
+const RX_PAS = /\b(2323|2329|2334|2312|2317|2340|1027)\b/;
 function extraerPasador(reg, fallback) {
   if (reg.pasador && PASADORES_VALIDOS.has(Number(reg.pasador))) {
     return String(reg.pasador);
