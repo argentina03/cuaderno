@@ -247,41 +247,63 @@ body.theme-light #notas-dia.saved { background:#ffffff !important; border-color:
 #two-col-wrap table th:nth-child(3),
 #two-col-wrap table td:nth-child(3){ width:120px; overflow:hidden; text-overflow:ellipsis; }
 
-/* Por (X) – 30% del original aprox */
+/* Por (X) */
 #one-col-wrap table th:nth-child(4),
 #one-col-wrap table td:nth-child(4),
 #two-col-wrap table th:nth-child(4),
-#two-col-wrap table td:nth-child(4){ width:70px; }
+#two-col-wrap table td:nth-child(4){
+  width:70px;
+}
 
-/* Cliente – 20% del original */
+/* Premio */
 #one-col-wrap table th:nth-child(5),
 #one-col-wrap table td:nth-child(5),
 #two-col-wrap table th:nth-child(5),
-#two-col-wrap table td:nth-child(5){ width:120px; overflow:hidden; text-overflow:ellipsis; }
+#two-col-wrap table td:nth-child(5){
+  width:110px;
+  white-space:nowrap;
+}
 
-/* Notas – 20% del original */
+/* Cliente */
 #one-col-wrap table th:nth-child(6),
 #one-col-wrap table td:nth-child(6),
 #two-col-wrap table th:nth-child(6),
-#two-col-wrap table td:nth-child(6){ width:120px; overflow:hidden; text-overflow:ellipsis; }
-
-/* Acciones (emoji) súper chicos – ahora son col 8 y 9 */
-#one-col-wrap table th:nth-child(8),
-#one-col-wrap table td:nth-child(8),
-#two-col-wrap table th:nth-child(8),
-#two-col-wrap table td:nth-child(8),
-#one-col-wrap table th:nth-child(9),
-#one-col-wrap table td:nth-child(9),
-#two-col-wrap table th:nth-child(9),
-#two-col-wrap table td:nth-child(9){
-  width:42px; text-align:left;
+#two-col-wrap table td:nth-child(6){
+  width:120px;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
-/* Nueva columna Estado (col 7) */
+
+/* Notas */
 #one-col-wrap table th:nth-child(7),
 #one-col-wrap table td:nth-child(7),
 #two-col-wrap table th:nth-child(7),
 #two-col-wrap table td:nth-child(7){
-  width:56px; text-align:left;
+  width:120px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Estado */
+#one-col-wrap table th:nth-child(8),
+#one-col-wrap table td:nth-child(8),
+#two-col-wrap table th:nth-child(8),
+#two-col-wrap table td:nth-child(8){
+  width:56px;
+  text-align:left;
+}
+
+/* Acciones */
+#one-col-wrap table th:nth-child(9),
+#one-col-wrap table td:nth-child(9),
+#two-col-wrap table th:nth-child(9),
+#two-col-wrap table td:nth-child(9),
+#one-col-wrap table th:nth-child(10),
+#one-col-wrap table td:nth-child(10),
+#two-col-wrap table th:nth-child(10),
+#two-col-wrap table td:nth-child(10){
+  width:42px;
+  text-align:left;
 }
 /* Ajustes finos: badge y celdas más compactos */
 .badge{ padding:1px 6px; font-size:11px; }
@@ -327,6 +349,15 @@ body:not(.theme-light) #notas-dia.saved{
 .cb-list{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
 .cb-chip{ padding:2px 6px; border:1px solid var(--border); background:#1a1b1e; border-radius:999px; }
 /* Seguridad: evitar scroll horizontal si el user hace zoom del browser */
+.totals-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:12px;
+  font-size:12px;
+  color:#b8b8b8;
+  font-weight:600;
+}
 
   </style>
 <!-- Supabase (una sola vez) -->
@@ -389,7 +420,7 @@ body:not(.theme-light) #notas-dia.saved{
             <div class="table-wrap">
               <table id="tabla-premios">
                 <thead>
-                  <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
+                  <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Premio</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
                 </thead>
                 <tbody id="premios-tbody"></tbody>
               </table>
@@ -398,14 +429,17 @@ body:not(.theme-light) #notas-dia.saved{
 
           <div id="two-col-wrap">
             <div class="col"><div class="table-wrap"><table><thead>
-              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
+              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Premio</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
             </thead><tbody id="col-left"></tbody></table></div></div>
             <div class="col"><div class="table-wrap"><table><thead>
-              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
+              <tr><th>Hora</th><th>Ticket</th><th>Números</th><th>Por</th><th>Premio</th><th>Cliente</th><th>Notas</th><th>Estado</th><th title="Editar">✏️</th><th title="Eliminar">🗑️</th></tr>
             </thead><tbody id="col-right"></tbody></table></div></div>
           </div>
 
-          <div class="row totals">Total registros: <span id="total-reg">0</span></div>
+         <div class="totals-row">
+  <div>Total registros: <span id="total-reg">0</span></div>
+  <div>Total premio: <span id="total-premio">—</span></div>
+</div>
         </div>
       </section>
 
@@ -872,9 +906,212 @@ window.addEventListener('storage', (ev) => {
       return (str || '').trim();
     }
 
-    function rowHtml(r, readOnly){
-  const horaTxt=new Intl.DateTimeFormat('es-AR',{timeZone:tz,hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(r.hora));
+function formatPremio(valor){
+  const n = Number(valor || 0);
+  if (!isFinite(n) || n <= 0) return '—';
+  return '$ ' + n.toLocaleString('es-AR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+}
+
+function extraerNumeroYPosicionDesdeTipo(tipoRaw){
+  const txt = String(tipoRaw || '').trim();
+
+  // Agarra cosas tipo:
+  // "10"
+  // "10 (5)"
+  // "100 (10)"
+  const m = txt.match(/^(\d+)(?:\s*\((\d+)\))?$/);
+
+  if (!m) {
+    return { numero:'', posicion:1 };
+  }
+
+  const numero = String(m[1] || '');
+  const pos = parseInt(m[2], 10);
+
+  return {
+    numero,
+    posicion: [1,5,10,15,20].includes(pos) ? pos : 1
+  };
+}
+function actualizarTotalPremio(rows){
+  const el = document.getElementById('total-premio');
+  if (!el) return;
+
+  let total = 0;
+  (rows || []).forEach(r => {
+    total += Number(calcularPremioVisualFila(r) || 0);
+  });
+
+  el.textContent = total > 0
+    ? '$ ' + total.toLocaleString('es-AR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      })
+    : '—';
+}
+function calcularPremioVisualFila(r){
+  const importe = Number(r.cantidad || 0);
+  if (!importe) return 0;
+
+  const tipoTxt = String(r.tipo || '').trim();
+
+  // =========================
+  // REDOBLONA
+  // Ej: "10 (5) 10 (20)"
+  // Ej: "10 (1) 10 (5)"
+  // =========================
+  const partsRedoblona = tipoTxt.match(/(\d+\s*(?:\(\d+\))?)/g);
+
+  if (partsRedoblona && partsRedoblona.length >= 2) {
+    const j1 = extraerNumeroYPosicionDesdeTipo(partsRedoblona[0].trim());
+    const j2 = extraerNumeroYPosicionDesdeTipo(partsRedoblona[1].trim());
+
+    const pagos = {
+      '1-5': 1280,
+      '1-10': 640,
+      '1-15': 426.67,
+      '1-20': 336.84,
+
+      '5-5': 256,
+      '5-10': 128,
+      '5-20': 64,
+
+      '10-10': 64,
+      '10-20': 32,
+
+      '20-20': 16
+    };
+
+    const clave = `${j1.posicion}-${j2.posicion}`;
+    return (pagos[clave] || 0) * importe;
+  }
+
+  // =========================
+  // JUGADA NORMAL
+  // =========================
+  const { numero, posicion } = extraerNumeroYPosicionDesdeTipo(tipoTxt);
+  const len = numero.length;
+
+  if (!numero) return 0;
+
+  // CABEZA
+  if (posicion === 1) {
+    const tabla = { 4:3500, 3:600, 2:70, 1:7 };
+    return (tabla[len] || 0) * importe;
+  }
+
+  // A LOS 15
+  if (posicion === 15) {
+    const tabla = { 4:233.33, 3:40, 2:4.67 };
+    return (tabla[len] || 0) * importe;
+  }
+
+  // A LOS 5 / 10 / 20
+  if ([5,10,20].includes(posicion)) {
+    const tabla = {
+      5:  { 4:700, 3:120, 2:14 },
+      10: { 4:350, 3:60,  2:7 },
+      20: { 4:175, 3:30,  2:3.5 }
+    };
+    return ((tabla[posicion] || {})[len] || 0) * importe;
+  }
+
+  return 0;
+}
+function formatPremio(valor){
+  const n = Number(valor || 0);
+  if (!isFinite(n) || n <= 0) return '—';
+  return '$ ' + n.toLocaleString('es-AR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+}
+
+function calcularPremioVisualFila(r){
+  const importe = Number(r.cantidad || 0);
+  if (!importe) return 0;
+
+  const raw = String(r.tipo || '').trim();
+  if (!raw) return 0;
+
+  const parts = raw.split(/\s+/).filter(Boolean);
+
+  // =========================
+  // REDOBLONA
+  // raw: "10 5 10 20"
+  //      num1 pos1 num2 pos2
+  // =========================
+  if (parts.length === 4) {
+    const pos1 = parseInt(parts[1], 10);
+    const pos2 = parseInt(parts[3], 10);
+
+    const pagos = {
+      '1-5': 1280,
+      '1-10': 640,
+      '1-15': 426.67,
+      '1-20': 336.84,
+      '5-5': 256,
+      '5-10': 128,
+      '5-20': 64,
+      '10-10': 64,
+      '10-20': 32,
+      '20-20': 16
+    };
+
+    const clave = `${pos1}-${pos2}`;
+    return (pagos[clave] || 0) * importe;
+  }
+
+  // =========================
+  // JUGADA NORMAL
+  // raw: "10" o "10 5"
+  // =========================
+  const numero = String(parts[0] || '');
+  let posicion = parseInt(parts[1], 10);
+
+  if (![1,5,10,15,20].includes(posicion)) posicion = 1;
+
+  const len = numero.length;
+  if (!numero) return 0;
+
+  // CABEZA
+  if (posicion === 1) {
+    const tabla = { 4:3500, 3:600, 2:70, 1:7 };
+    return (tabla[len] || 0) * importe;
+  }
+
+  // A LOS 15
+  if (posicion === 15) {
+    const tabla = { 4:233.33, 3:40, 2:4.67 };
+    return (tabla[len] || 0) * importe;
+  }
+
+  // A LOS 5 / 10 / 20
+  if ([5,10,20].includes(posicion)) {
+    const tabla = {
+      5:  { 4:700, 3:120, 2:14 },
+      10: { 4:350, 3:60,  2:7 },
+      20: { 4:175, 3:30,  2:3.5 }
+    };
+    return ((tabla[posicion] || {})[len] || 0) * importe;
+  }
+
+  return 0;
+}
+  function rowHtml(r, readOnly){
+  const horaTxt = new Intl.DateTimeFormat('es-AR',{
+    timeZone:tz,
+    hour:'2-digit',
+    minute:'2-digit',
+    second:'2-digit',
+    hour12:false
+  }).format(new Date(r.hora));
+
   const tipoTxt = formatNumeros(r.tipo, r);
+  const premioTxt = formatPremio(calcularPremioVisualFila(r));
 
   // chip de estado (idéntico a Pagos: interactivo SOLO con control ON)
   const ok = !!(r.status_ok);
@@ -894,9 +1131,10 @@ window.addEventListener('storage', (ev) => {
       <td><span class="badge">${r.ticket}</span></td>
       <td>${tipoTxt}</td>
       <td>${r.cantidad ? 'X '+r.cantidad : ''}</td>
+      <td>${premioTxt}</td>
       <td>${r.cliente}</td>
       <td>${r.notas||''}</td>
-      <td>${chipHtml}</td>  <!-- 👈 NUEVA col 7 -->
+      <td>${chipHtml}</td>
       <td>${
         readOnly
           ? '<span class="muted">—</span>'
@@ -961,6 +1199,8 @@ function loadNotas(){
           twoWrap.querySelectorAll('.btn-del').forEach(b=>b.addEventListener('click',delRow));
         }
       }
+        actualizarTotalPremio(rows);   // 👈 ACÁ VA
+
   window.render = render;
 
       renderOficina(readOnly);
